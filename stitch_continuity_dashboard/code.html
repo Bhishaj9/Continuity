@@ -1,271 +1,313 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Continuity Dashboard</title>
-<!-- Google Fonts -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<!-- Material Symbols -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#7f0df2",
-                        "background-light": "#f7f5f8",
-                        "background-dark": "#191022",
-                        "surface-dark": "#2a1d35",
-                        "border-dark": "#4d3168",
-                    },
-                    fontFamily: {
-                        "display": ["Space Grotesk", "sans-serif"],
-                        "body": ["Noto Sans", "sans-serif"],
-                    },
-                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
-                    boxShadow: {
-                        "neon": "0 0 20px rgba(127, 13, 242, 0.4)",
-                        "neon-strong": "0 0 35px rgba(127, 13, 242, 0.6)",
-                    }
-                },
-            },
-        }
-    </script>
-<style>
-        /* Custom scrollbar for dark theme */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #191022; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #4d3168; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #7f0df2; 
-        }
-        .glass-panel {
-            background: rgba(25, 16, 34, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .connection-line {
-            height: 2px;
-            flex-grow: 1;
-            background: linear-gradient(90deg, #4d3168 0%, #7f0df2 50%, #4d3168 100%);
-            opacity: 0.5;
-            position: relative;
-        }
-        .connection-line::after {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 6px;
-            height: 6px;
-            background: #7f0df2;
-            border-radius: 50%;
-            box-shadow: 0 0 10px #7f0df2;
-        }
-    </style>
-</head>
-<body class="relative flex h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display overflow-hidden text-white selection:bg-primary selection:text-white">
-<!-- Background Ambient Glows -->
-<div class="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
-<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
-<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
-</div>
-<!-- Header -->
-<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-white/5 glass-panel px-8 py-4">
-<div class="flex items-center gap-4 text-white">
-<div class="size-8 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-3xl">emergency_recording</span>
-</div>
-<h2 class="text-white text-xl font-bold leading-tight tracking-[-0.015em] bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                Continuity <span class="text-xs font-normal text-gray-400 ml-2 opacity-60 tracking-widest uppercase">The Missing Link</span>
-</h2>
-</div>
-<div class="flex gap-3">
-<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-dark hover:bg-primary/20 transition-colors border border-white/5 text-white">
-<span class="material-symbols-outlined text-[20px]">settings</span>
-</button>
-<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-dark hover:bg-primary/20 transition-colors border border-white/5 text-white">
-<span class="material-symbols-outlined text-[20px]">account_circle</span>
-</button>
-</div>
-</header>
-<!-- Main Workspace -->
-<main class="relative z-10 flex flex-1 flex-col items-center justify-center w-full px-8 pt-20 pb-28">
-<!-- Timeline Container -->
-<div class="w-full max-w-[1400px] flex items-center justify-center gap-6 xl:gap-10">
-<!-- SCENE A: Upload State -->
-<div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-<div class="flex items-center justify-between px-1">
-<span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Input Source</span>
-<span class="text-xs font-bold tracking-widest text-primary">SCENE A</span>
-</div>
-<div class="relative flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border-dark bg-surface-dark/30 hover:bg-surface-dark/50 hover:border-primary/50 transition-all duration-300 px-6 py-12 h-[360px]">
-<div class="size-16 rounded-full bg-surface-dark flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-3xl text-gray-300 group-hover:text-white">video_file</span>
-</div>
-<div class="flex flex-col items-center gap-2 text-center">
-<p class="text-white text-lg font-bold">Start Scene</p>
-<p class="text-gray-400 text-sm max-w-[200px]">Drag &amp; drop your starting video clip here</p>
-</div>
-<input type="file" id="video-upload-a" accept="video/*,image/*" class="hidden" onchange="handleFileSelect(this, 'label-a')">
-<button onclick="document.getElementById('video-upload-a').click()" class="mt-2 flex items-center justify-center rounded-lg h-9 px-4 bg-surface-dark hover:bg-primary hover:text-white border border-white/10 transition-all text-sm font-bold tracking-wide text-gray-200 shadow-lg">
-<span class="material-symbols-outlined text-[18px] mr-2">upload</span>
-<span id="label-a">Select File</span>
-</button>
-</div>
-</div>
-<!-- Connector Left -->
-<div class="hidden md:flex flex-col items-center justify-center w-16 xl:w-24 opacity-40">
-<div class="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent relative">
-<div class="absolute right-0 -top-1.5 text-primary animate-pulse">
-<span class="material-symbols-outlined text-lg">chevron_right</span>
-</div>
-</div>
-</div>
-<!-- THE BRIDGE: AI Generation Core -->
-<div class="flex flex-col gap-4 flex-[1.2] max-w-[480px] relative z-20">
-<div class="flex items-center justify-center px-1">
-<span class="text-xs font-bold tracking-[0.2em] text-primary drop-shadow-[0_0_8px_rgba(127,13,242,0.8)] uppercase animate-pulse">The Bridge</span>
-</div>
-<!-- Active Card Container -->
-<div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-neon border border-primary/30 group">
-<!-- Placeholder Gradient Background -->
-<div class="absolute inset-0 bg-gradient-to-br from-surface-dark to-[#0f0a16] z-0"></div>
-<!-- Abstract Visualization -->
-<div class="absolute inset-0 opacity-40 mix-blend-overlay bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&amp;w=1000&amp;auto=format&amp;fit=crop')] bg-cover bg-center" data-alt="Abstract digital waves representing AI processing"></div>
-<!-- Glowing Core Animation (CSS Only representation) -->
-<div class="absolute inset-0 flex items-center justify-center">
-<div class="relative size-32">
-<div class="absolute inset-0 rounded-full border-2 border-primary/20 animate-[spin_4s_linear_infinite]"></div>
-<div class="absolute inset-2 rounded-full border-2 border-t-primary border-r-transparent border-b-primary/50 border-l-transparent animate-[spin_3s_linear_infinite_reverse]"></div>
-<div class="absolute inset-0 flex items-center justify-center">
-<span class="material-symbols-outlined text-4xl text-primary drop-shadow-[0_0_10px_rgba(127,13,242,1)]">auto_awesome</span>
-</div>
-</div>
-</div>
-<!-- Content Overlay -->
-<div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-end justify-between">
-<div class="flex flex-col gap-1">
-<p class="text-white text-xl font-bold leading-tight">AI Transition</p>
-<div class="flex items-center gap-2">
-<div class="size-2 rounded-full bg-yellow-500 animate-pulse"></div>
-<p class="text-gray-300 text-xs font-medium uppercase tracking-wide">Waiting for inputs...</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Connector Right -->
-<div class="hidden md:flex flex-col items-center justify-center w-16 xl:w-24 opacity-40">
-<div class="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent relative">
-<div class="absolute right-0 -top-1.5 text-primary animate-pulse">
-<span class="material-symbols-outlined text-lg">chevron_right</span>
-</div>
-</div>
-</div>
-<!-- SCENE C: Upload State -->
-<div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-<div class="flex items-center justify-between px-1">
-<span class="text-xs font-bold tracking-widest text-primary">SCENE C</span>
-<span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Target Source</span>
-</div>
-<div class="relative flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border-dark bg-surface-dark/30 hover:bg-surface-dark/50 hover:border-primary/50 transition-all duration-300 px-6 py-12 h-[360px]">
-<div class="size-16 rounded-full bg-surface-dark flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-3xl text-gray-300 group-hover:text-white">movie_edit</span>
-</div>
-<div class="flex flex-col items-center gap-2 text-center">
-<p class="text-white text-lg font-bold">End Scene</p>
-<p class="text-gray-400 text-sm max-w-[200px]">Drag &amp; drop your target video clip here</p>
-</div>
-<input type="file" id="video-upload-c" accept="video/*,image/*" class="hidden" onchange="handleFileSelect(this, 'label-c')">
-<button onclick="document.getElementById('video-upload-c').click()" class="mt-2 flex items-center justify-center rounded-lg h-9 px-4 bg-surface-dark hover:bg-primary hover:text-white border border-white/10 transition-all text-sm font-bold tracking-wide text-gray-200 shadow-lg">
-<span class="material-symbols-outlined text-[18px] mr-2">upload</span>
-<span id="label-c">Select File</span>
-</button>
-</div>
-</div>
-</div>
-</main>
-<!-- Floating Action Bar (Director Controls) -->
-<div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
-<div class="glass-panel rounded-full p-2 pl-6 flex items-center shadow-neon">
-<div class="flex-1 flex items-center gap-3">
-<span class="material-symbols-outlined text-gray-400">edit_note</span>
-<input id="director-notes" class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm font-medium" placeholder="Add Director Notes (e.g., 'Slow dissolve', 'Cyber glitch')..." type="text"/>
-</div>
-<div class="h-8 w-[1px] bg-white/10 mx-2"></div>
-<button id="generate-btn" class="flex items-center gap-2 bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(127,13,242,0.4)] hover:shadow-[0_0_25px_rgba(127,13,242,0.6)] whitespace-nowrap">
-<span class="material-symbols-outlined text-[20px]">movie_filter</span>
-                Generate Transition
-            </button>
-</div>
-</div>
+<html class="dark" lang="en">
 
-<script>
-  // UI Helper: Update filename text when file is selected
-  function handleFileSelect(input, labelId) {
-    if (input.files && input.files[0]) {
-      const label = document.getElementById(labelId);
-      label.innerText = input.files[0].name;
-      label.classList.add("text-primary"); // Turn purple to indicate success
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Continuity Dashboard</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap"
+    rel="stylesheet" />
+  <!-- Material Symbols -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#7f0df2",
+            "background-light": "#f7f5f8",
+            "background-dark": "#191022",
+            "surface-dark": "#2a1d35",
+            "border-dark": "#4d3168",
+          },
+          fontFamily: {
+            "display": ["Space Grotesk", "sans-serif"],
+            "body": ["Noto Sans", "sans-serif"],
+          },
+          borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+          boxShadow: {
+            "neon": "0 0 20px rgba(127, 13, 242, 0.4)",
+            "neon-strong": "0 0 35px rgba(127, 13, 242, 0.6)",
+          }
+        },
+      },
     }
-  }
+  </script>
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
 
-  // Main Logic: Send to Agent
-  const generateBtn = document.getElementById("generate-btn");
-  if (generateBtn) {
+    ::-webkit-scrollbar-track {
+      background: #191022;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4d3168;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #7f0df2;
+    }
+
+    .glass-panel {
+      background: rgba(25, 16, 34, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .connection-line {
+      height: 2px;
+      flex-grow: 1;
+      background: linear-gradient(90deg, #4d3168 0%, #7f0df2 50%, #4d3168 100%);
+      opacity: 0.5;
+      position: relative;
+    }
+
+    .connection-line::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      background: #7f0df2;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #7f0df2;
+    }
+  </style>
+</head>
+
+<body
+  class="relative flex h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display overflow-hidden text-white selection:bg-primary selection:text-white">
+  <!-- Background Ambient Glows -->
+  <div class="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+  </div>
+  <!-- Header -->
+  <header
+    class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-white/5 glass-panel px-8 py-4">
+    <div class="flex items-center gap-4 text-white">
+      <div class="size-8 flex items-center justify-center text-primary">
+        <span class="material-symbols-outlined text-3xl">emergency_recording</span>
+      </div>
+      <h2
+        class="text-white text-xl font-bold leading-tight tracking-[-0.015em] bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+        Continuity <span class="text-xs font-normal text-gray-400 ml-2 opacity-60 tracking-widest uppercase">The Missing
+          Link</span>
+      </h2>
+    </div>
+    <div class="flex gap-3">
+      <button
+        class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-dark hover:bg-primary/20 transition-colors border border-white/5 text-white">
+        <span class="material-symbols-outlined text-[20px]">settings</span>
+      </button>
+      <button
+        class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-dark hover:bg-primary/20 transition-colors border border-white/5 text-white">
+        <span class="material-symbols-outlined text-[20px]">account_circle</span>
+      </button>
+    </div>
+  </header>
+  <!-- Main Workspace -->
+  <main class="relative z-10 flex flex-1 flex-col items-center justify-center w-full px-8 pt-20 pb-28">
+    <!-- Timeline Container -->
+    <div class="w-full max-w-[1400px] flex items-center justify-center gap-6 xl:gap-10">
+      <!-- SCENE A: Upload State -->
+      <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Input Source</span>
+          <span class="text-xs font-bold tracking-widest text-primary">SCENE A</span>
+        </div>
+        <div
+          class="relative flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border-dark bg-surface-dark/30 hover:bg-surface-dark/50 hover:border-primary/50 transition-all duration-300 px-6 py-12 h-[360px]">
+          <div
+            class="size-16 rounded-full bg-surface-dark flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-3xl text-gray-300 group-hover:text-white">video_file</span>
+          </div>
+          <div class="flex flex-col items-center gap-2 text-center">
+            <p class="text-white text-lg font-bold">Start Scene</p>
+            <p class="text-gray-400 text-sm max-w-[200px]">Drag &amp; drop your starting video clip here</p>
+          </div>
+          <input type="file" id="video-upload-a" accept="video/*,image/*" class="hidden"
+            onchange="handleFileSelect(this, 'label-a')">
+          <button onclick="document.getElementById('video-upload-a').click()"
+            class="mt-2 flex items-center justify-center rounded-lg h-9 px-4 bg-surface-dark hover:bg-primary hover:text-white border border-white/10 transition-all text-sm font-bold tracking-wide text-gray-200 shadow-lg">
+            <span class="material-symbols-outlined text-[18px] mr-2">upload</span>
+            <span id="label-a">Select File</span>
+          </button>
+        </div>
+      </div>
+      <!-- Connector Left -->
+      <div class="hidden md:flex flex-col items-center justify-center w-16 xl:w-24 opacity-40">
+        <div class="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent relative">
+          <div class="absolute right-0 -top-1.5 text-primary animate-pulse">
+            <span class="material-symbols-outlined text-lg">chevron_right</span>
+          </div>
+        </div>
+      </div>
+      <!-- THE BRIDGE: AI Generation Core -->
+      <div class="flex flex-col gap-4 flex-[1.2] max-w-[480px] relative z-20">
+        <div class="flex items-center justify-center px-1">
+          <span
+            class="text-xs font-bold tracking-[0.2em] text-primary drop-shadow-[0_0_8px_rgba(127,13,242,0.8)] uppercase animate-pulse">The
+            Bridge</span>
+        </div>
+        <!-- Active Card Container -->
+        <div
+          class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-neon border border-primary/30 group">
+          <!-- Placeholder Gradient Background -->
+          <div class="absolute inset-0 bg-gradient-to-br from-surface-dark to-[#0f0a16] z-0"></div>
+          <!-- Abstract Visualization -->
+          <div
+            class="absolute inset-0 opacity-40 mix-blend-overlay bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&amp;w=1000&amp;auto=format&amp;fit=crop')] bg-cover bg-center"
+            data-alt="Abstract digital waves representing AI processing"></div>
+          <!-- Glowing Core Animation (CSS Only representation) -->
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="relative size-32">
+              <div class="absolute inset-0 rounded-full border-2 border-primary/20 animate-[spin_4s_linear_infinite]">
+              </div>
+              <div
+                class="absolute inset-2 rounded-full border-2 border-t-primary border-r-transparent border-b-primary/50 border-l-transparent animate-[spin_3s_linear_infinite_reverse]">
+              </div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span
+                  class="material-symbols-outlined text-4xl text-primary drop-shadow-[0_0_10px_rgba(127,13,242,1)]">auto_awesome</span>
+              </div>
+            </div>
+          </div>
+          <!-- Content Overlay -->
+          <div
+            class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-end justify-between">
+            <div class="flex flex-col gap-1">
+              <p class="text-white text-xl font-bold leading-tight">AI Transition</p>
+              <div class="flex items-center gap-2">
+                <div class="size-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                <p class="text-gray-300 text-xs font-medium uppercase tracking-wide">Waiting for inputs...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Connector Right -->
+      <div class="hidden md:flex flex-col items-center justify-center w-16 xl:w-24 opacity-40">
+        <div class="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent relative">
+          <div class="absolute right-0 -top-1.5 text-primary animate-pulse">
+            <span class="material-symbols-outlined text-lg">chevron_right</span>
+          </div>
+        </div>
+      </div>
+      <!-- SCENE C: Upload State -->
+      <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-xs font-bold tracking-widest text-primary">SCENE C</span>
+          <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Target Source</span>
+        </div>
+        <div
+          class="relative flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border-dark bg-surface-dark/30 hover:bg-surface-dark/50 hover:border-primary/50 transition-all duration-300 px-6 py-12 h-[360px]">
+          <div
+            class="size-16 rounded-full bg-surface-dark flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-3xl text-gray-300 group-hover:text-white">movie_edit</span>
+          </div>
+          <div class="flex flex-col items-center gap-2 text-center">
+            <p class="text-white text-lg font-bold">End Scene</p>
+            <p class="text-gray-400 text-sm max-w-[200px]">Drag &amp; drop your target video clip here</p>
+          </div>
+          <input type="file" id="video-upload-c" accept="video/*,image/*" class="hidden"
+            onchange="handleFileSelect(this, 'label-c')">
+          <button onclick="document.getElementById('video-upload-c').click()"
+            class="mt-2 flex items-center justify-center rounded-lg h-9 px-4 bg-surface-dark hover:bg-primary hover:text-white border border-white/10 transition-all text-sm font-bold tracking-wide text-gray-200 shadow-lg">
+            <span class="material-symbols-outlined text-[18px] mr-2">upload</span>
+            <span id="label-c">Select File</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <!-- Floating Action Bar (Director Controls) -->
+  <div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+    <div class="glass-panel rounded-full p-2 pl-6 flex items-center shadow-neon">
+      <div class="flex-1 flex items-center gap-3">
+        <span class="material-symbols-outlined text-gray-400">edit_note</span>
+        <input id="director-notes"
+          class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm font-medium"
+          placeholder="Add Director Notes (e.g., 'Slow dissolve', 'Cyber glitch')..." type="text" />
+      </div>
+      <div class="h-8 w-[1px] bg-white/10 mx-2"></div>
+      <button id="generate-btn"
+        class="flex items-center gap-2 bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(127,13,242,0.4)] hover:shadow-[0_0_25px_rgba(127,13,242,0.6)] whitespace-nowrap">
+        <span class="material-symbols-outlined text-[20px]">movie_filter</span>
+        Generate Transition
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // UI Helper: Update filename text when file is selected
+    function handleFileSelect(input, labelId) {
+      if (input.files && input.files[0]) {
+        const label = document.getElementById(labelId);
+        label.innerText = input.files[0].name;
+        label.classList.add("text-primary"); // Turn purple to indicate success
+      }
+    }
+
+    // Main Logic: Send to Agent
+    const generateBtn = document.getElementById("generate-btn");
+    if (generateBtn) {
       generateBtn.addEventListener("click", async () => {
         const fileA = document.getElementById("video-upload-a").files[0];
         const fileC = document.getElementById("video-upload-c").files[0];
         const notes = document.getElementById("director-notes").value;
         const btn = document.getElementById("generate-btn");
-    
+
         // 1. Validation
         if (!fileA || !fileC) {
           alert("⚠️ Action Required: Please upload both Scene A and Scene C videos.");
           return;
         }
-    
+
         // 2. Loading State
         const originalContent = btn.innerHTML;
         btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Director is working...`;
         btn.disabled = true;
         btn.classList.add("opacity-70", "cursor-not-allowed");
-    
+
         const formData = new FormData();
         formData.append("video_a", fileA);
         formData.append("video_c", fileC);
         formData.append("prompt", notes || "Cinematic transition between scenes");
-    
+
         try {
           // 3. Send to Server
           const response = await fetch("http://127.0.0.1:8000/generate-transition", {
             method: "POST",
             body: formData
           });
-    
+
           if (!response.ok) throw new Error("Agent backend returned an error.");
-    
+
           const data = await response.json();
-    
+
           // 4. Success: Inject Video into the Middle Card
           // We target the middle "Bridge" div
           const bridgeCard = document.querySelector(".aspect-\\[4\\/3\\]");
@@ -276,25 +318,31 @@
           // Scene A: .aspect-[4/3]
           // Bridge: .aspect-[4/3] (line 148)
           // Scene C: .aspect-[4/3]
-          
+
           // User script used document.querySelector(".aspect-\\[4\\/3\\]"). 
           // This matches the first one (Scene A)! That's a bug in the user's snippet.
           // I will fix it to target the BRIDGE card.
           // The bridge card container has text "The Bridge".
           // I'll add an ID to the bridge container or select by index.
           // Safer to select the middle one: document.querySelectorAll(".aspect-\\[4\\/3\\]")[1]
-          
+
+          // Target the middle "Bridge" div (index 1)
           const cards = document.querySelectorAll(".aspect-\\[4\\/3\\]");
           if (cards.length >= 2) {
-              const bridgeCard = cards[1];
-              bridgeCard.innerHTML = `
+            // Scene A is [0], Bridge is [1], Scene C is [2]
+            const bridgeCard = cards[1];
+            // Ensure we are replacing the inner content
+            bridgeCard.innerHTML = `
                 <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
                   <source src="http://127.0.0.1:8000${data.video_url}" type="video/mp4">
                   Your browser does not support the video tag.
                 </video>
               `;
+          } else {
+            console.error("Could not find the bridge card");
+            alert("Video generated, but could not place it in UI. Check console.");
           }
-          
+
         } catch (error) {
           console.error(error);
           alert("❌ Generation Failed: " + error.message + "\n\nMake sure 'python server.py' is running!");
@@ -304,6 +352,8 @@
           btn.classList.remove("opacity-70", "cursor-not-allowed");
         }
       });
-  }
-</script>
-</body></html>
+    }
+  </script>
+</body>
+
+</html>

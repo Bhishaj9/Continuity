@@ -7,7 +7,7 @@ import shutil
 import uuid
 
 # Import from the subpackage as before
-from continuity_agent.agent import continuity_graph
+from continuity_agent.agent import app as continuity_graph
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 
