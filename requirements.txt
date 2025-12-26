@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-dotenv
+langgraph
+langchain-google-genai
+gradio_client
+pydantic
+requests
+
+opencv-python
+google-genai
+python-multipart
