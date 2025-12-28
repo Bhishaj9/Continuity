@@ -29,7 +29,7 @@ class ContinuityState(TypedDict):
 
 # Node 1: Analyst
 def analyze_videos(state: ContinuityState) -> dict:
-    print("--- 🧐 Analyst Node (Director) ---")
+    print("--- Analyst Node (Director) ---")
     
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
@@ -103,7 +103,7 @@ def analyze_videos(state: ContinuityState) -> dict:
 
 # Node 2: Generator (Wan 2.2 First Last Frame)
 def generate_video(state: ContinuityState) -> dict:
-    print("--- 🎥 Generator Node (Wan 2.2) ---")
+    print("--- Generator Node (Wan 2.2) ---")
     
     prompt = state.get('veo_prompt', "")
     path_a = state.get('video_a_local_path')

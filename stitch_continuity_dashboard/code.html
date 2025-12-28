@@ -173,7 +173,7 @@
             Bridge</span>
         </div>
         <!-- Active Card Container -->
-        <div
+        <div id="bridge-card"
           class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-neon border border-primary/30 group">
           <!-- Placeholder Gradient Background -->
           <div class="absolute inset-0 bg-gradient-to-br from-surface-dark to-[#0f0a16] z-0"></div>
@@ -218,7 +218,7 @@
       </div>
       <!-- SCENE C: Upload State -->
       <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-        <div class="flex items-center justify-between px-1">
+        <div class="flex items-center justify-center px-1">
           <span class="text-xs font-bold tracking-widest text-primary">SCENE C</span>
           <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Target Source</span>
         </div>
@@ -299,7 +299,7 @@
 
         try {
           // 3. Send to Server
-          const response = await fetch("http://127.0.0.1:8000/generate-transition", {
+          const response = await fetch("/generate-transition", {
             method: "POST",
             body: formData
           });
@@ -309,32 +309,13 @@
           const data = await response.json();
 
           // 4. Success: Inject Video into the Middle Card
-          // We target the middle "Bridge" div
-          const bridgeCard = document.querySelector(".aspect-\\[4\\/3\\]");
-          // Find the middle card specifically if possible, relying on the class is risky if multiple match.
-          // But in this layout, the middle one is distinct or we can target by structure. 
-          // The middle card is the second .aspect-[4/3] roughly, but the user script uses querySelector which matches the first one?
-          // Wait, the Code.html has 3 cards.
-          // Scene A: .aspect-[4/3]
-          // Bridge: .aspect-[4/3] (line 148)
-          // Scene C: .aspect-[4/3]
+          const bridgeCard = document.getElementById("bridge-card");
 
-          // User script used document.querySelector(".aspect-\\[4\\/3\\]"). 
-          // This matches the first one (Scene A)! That's a bug in the user's snippet.
-          // I will fix it to target the BRIDGE card.
-          // The bridge card container has text "The Bridge".
-          // I'll add an ID to the bridge container or select by index.
-          // Safer to select the middle one: document.querySelectorAll(".aspect-\\[4\\/3\\]")[1]
-
-          // Target the middle "Bridge" div (index 1)
-          const cards = document.querySelectorAll(".aspect-\\[4\\/3\\]");
-          if (cards.length >= 2) {
-            // Scene A is [0], Bridge is [1], Scene C is [2]
-            const bridgeCard = cards[1];
-            // Ensure we are replacing the inner content
+          if (bridgeCard) {
+            // Ensure we are replacing the inner content completely
             bridgeCard.innerHTML = `
                 <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
-                  <source src="http://127.0.0.1:8000${data.video_url}" type="video/mp4">
+                  <source src="${data.video_url}" type="video/mp4">
                   Your browser does not support the video tag.
                 </video>
               `;
