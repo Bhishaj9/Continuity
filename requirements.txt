@@ -7,6 +7,6 @@ gradio_client
 pydantic
 requests
 
-opencv-python
+opencv-python-headless
 google-genai
 python-multipart
