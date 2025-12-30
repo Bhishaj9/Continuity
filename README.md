@@ -9,20 +9,26 @@ app_port: 7860
 
 # Continuity
 
-AI-powered video post-production tool that automatically generates seamless bridging transitions between two video clips using Gemini 1.5 Flash (Director) and Wan 2.2 (Cinematographer).
+AI-powered video post-production tool that automatically generates seamless bridging transitions between two video clips using Gemini 2.0 Flash (Director) and Wan 2.2 (Cinematographer).
 
 ## How it Works
 
 Continuity behaves like a professional film crew inside your browser, orchestrating a multi-step workflow to bridge scenes:
 
 1.  **Ingest**: You upload your starting clip (Scene A) and ending clip (Scene C).
-2.  **Director Node (Gemini 1.5 Flash)**:
+2.  **Director Node (Gemini 2.0 Flash)**:
     *   Analyzes the visual content, motion, and lighting of both clips.
     *   Drafts a creative direction for the transition (Scene B) to ensure narrative consistency.
 3.  **Cinematographer Node (Wan 2.2)**:
     *   Takes the Director's prompt and generates the bridging video content.
     *   Ensures the transition matches the style and tone of the input footage.
 4.  **Assembly**: The system stitches the generated bridge with the original clips (logic handled by the agent) and presents the final result.
+
+## Setup Requirements
+
+1.  **Duplicate the Wan 2.2 Space**: Users must duplicate the Wan 2.2 Space to their own account.
+2.  **Add `HF_TOKEN` Secret**: Users must add a Secret named `HF_TOKEN` (Hugging Face Access Token) in the Space Settings.
+3.  **Add `GOOGLE_API_KEY` Secret**: Users must add a Secret named `GOOGLE_API_KEY`.
 
 ## Usage
 
