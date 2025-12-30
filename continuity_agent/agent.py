@@ -73,7 +73,7 @@ def analyze_videos(state: ContinuityState) -> dict:
         
         print("Generating transition prompt...")
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",
             contents=[prompt, file_a, file_c]
         )
         
@@ -153,7 +153,7 @@ def generate_video(state: ContinuityState) -> dict:
 
         # Call Wan 2.2
         print("Initializing Wan Client...")
-        client = Client("Bhishaj/wan-2-2-first-last-frame")
+        client = Client("Bhishaj/wan-2-2-first-last-frame", hf_token=os.environ.get("HF_TOKEN"))
         
         print(f"Generating transition with prompt: {prompt[:50]}...")
         # predict(start_image, end_image, prompt, negative_prompt, duration, steps, guide, guide2, seed, rand, api_name)
