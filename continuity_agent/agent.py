@@ -153,7 +153,7 @@ def generate_video(state: ContinuityState) -> dict:
 
         # Call Wan 2.2
         print("Initializing Wan Client...")
-        client = Client("multimodalart/wan-2-2-first-last-frame")
+        client = Client("Bhishaj/wan-2-2-first-last-frame")
         
         print(f"Generating transition with prompt: {prompt[:50]}...")
         # predict(start_image, end_image, prompt, negative_prompt, duration, steps, guide, guide2, seed, rand, api_name)
