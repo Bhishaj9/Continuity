@@ -90,7 +90,14 @@ def analyze_videos(state: ContinuityState) -> dict:
                     raise e
         
         if not response:
-             raise Exception("Failed to generate content after retries")
+             # raise Exception("Failed to generate content after retries") 
+             print("⚠️ Gemini Quota hit. Using fallback prompt.")
+             return {
+                "scene_analysis": "Quota exceeded, using default.",
+                "veo_prompt": "Smooth cinematic transition between the two clips, high quality, 4k, keeping style consistent.",
+                "video_a_local_path": path_a,
+                "video_c_local_path": path_c
+             }
         
         transition_prompt = response.text
         print(f"Generated Prompt: {transition_prompt}")
