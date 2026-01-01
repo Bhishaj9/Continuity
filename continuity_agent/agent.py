@@ -1,4 +1,6 @@
 import os
+import time
+
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -72,10 +74,23 @@ def analyze_videos(state: ContinuityState) -> dict:
         """
         
         print("Generating transition prompt...")
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[prompt, file_a, file_c]
-        )
+        response = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=[prompt, file_a, file_c]
+                )
+                break
+            except Exception as e:
+                if "429" in str(e) or "Resource Exhausted" in str(e):
+                    print("Quota hit, waiting 30s...")
+                    time.sleep(30)
+                else:
+                    raise e
+        
+        if not response:
+             raise Exception("Failed to generate content after retries")
         
         transition_prompt = response.text
         print(f"Generated Prompt: {transition_prompt}")
@@ -153,7 +168,7 @@ def generate_video(state: ContinuityState) -> dict:
 
         # Call Wan 2.2
         print("Initializing Wan Client...")
-        client = Client("Bhishaj/wan-2-2-first-last-frame", token=os.environ.get("HF_TOKEN"))
+        client = Client("multimodalart/wan-2-2-first-last-frame", token=os.environ.get("HF_TOKEN"))
         
         print(f"Generating transition with prompt: {prompt[:50]}...")
         # predict(start_image, end_image, prompt, negative_prompt, duration, steps, guide, guide2, seed, rand, api_name)
