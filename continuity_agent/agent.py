@@ -153,6 +153,13 @@ def generate_video(state: ContinuityState) -> dict:
             cap.release()
             
             if ret:
+                # Resize to a safe resolution (height=480) to prevent server crash
+                height, width = frame.shape[:2]
+                if height > 480:
+                    scale = 480 / height
+                    new_width = int(width * scale)
+                    frame = cv2.resize(frame, (new_width, 480))
+
                 # Convert BGR to RGB
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 return Image.fromarray(frame_rgb)
