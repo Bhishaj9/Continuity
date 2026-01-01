@@ -184,21 +184,31 @@ def generate_video(state: ContinuityState) -> dict:
         print("Initializing Wan Client...")
         client = Client("multimodalart/wan-2-2-first-last-frame", token=os.environ.get("HF_TOKEN"))
         
-        print(f"Generating transition with prompt: {prompt[:50]}...")
-        # predict(start_image, end_image, prompt, negative_prompt, duration, steps, guide, guide2, seed, rand, api_name)
-        result = client.predict(
-            start_image_pil=handle_file(start_path),
-            end_image_pil=handle_file(end_path),
-            prompt=prompt,
-            negative_prompt="blurry, distorted, low quality, static",
-            duration_seconds=2.1,
-            steps=20, # Default is often around 20-30 for good quality
-            guidance_scale=5.0,
-            guidance_scale_2=5.0,
-            seed=42,
-            randomize_seed=True,
-            api_name="/generate_video"
-        )
+        result = None
+        for i in range(3):
+            try:
+                print(f"Generating transition with prompt: {prompt[:50]}... (Attempt {i+1})")
+                # predict(start_image, end_image, prompt, negative_prompt, duration, steps, guide, guide2, seed, rand, api_name)
+                result = client.predict(
+                    start_image_pil=handle_file(start_path),
+                    end_image_pil=handle_file(end_path),
+                    prompt=prompt,
+                    negative_prompt="blurry, distorted, low quality, static",
+                    duration_seconds=2.1,
+                    steps=20, # Default is often around 20-30 for good quality
+                    guidance_scale=5.0,
+                    guidance_scale_2=5.0,
+                    seed=42,
+                    randomize_seed=True,
+                    api_name="/generate_video"
+                )
+                break
+            except Exception as e:
+                print(f"⚠️ Attempt {i+1} failed: {e}. Retrying in 10s...")
+                time.sleep(10)
+
+        if result is None:
+            return {"generated_video_url": "Error: Generator failed after 3 retries."}
         
         # Clean up temp frames and videos
         try:
