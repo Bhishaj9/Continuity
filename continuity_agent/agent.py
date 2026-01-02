@@ -11,8 +11,14 @@ import requests
 import tempfile
 import os
 import shutil
+import shutil
 import requests
 import tempfile
+import base64
+import numpy as np
+import cv2
+from groq import Groq
+from PIL import Image
 
 from dotenv import load_dotenv
 
@@ -29,9 +35,56 @@ class ContinuityState(TypedDict):
     video_a_local_path: Optional[str]
     video_c_local_path: Optional[str]
 
+def create_filmstrip(video_path, samples=5, is_start=False):
+    """
+    Captures 'samples' frames from the first 2s (is_start=True) or last 2s (is_start=False).
+    Stitches them horizontally into a single filmstrip image.
+    Returns the file path of the saved filmstrip.
+    """
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration = total_frames / fps
+    
+    # Define time range
+    if is_start:
+        start_sec = 0
+        end_sec = min(2, duration)
+    else:
+        start_sec = max(0, duration - 2)
+        end_sec = duration
+
+    target_times = np.linspace(start_sec, end_sec, samples)
+    frames = []
+
+    for t in target_times:
+        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
+        ret, frame = cap.read()
+        if ret:
+            # Resize logic: fixed height 300px, maintain aspect ratio
+            h, w = frame.shape[:2]
+            new_h = 300
+            scale = new_h / h
+            new_w = int(w * scale)
+            frame_resized = cv2.resize(frame, (new_w, new_h))
+            frames.append(frame_resized)
+    
+    cap.release()
+
+    if not frames:
+        return None
+
+    # Stitch horizontally
+    filmstrip = np.hstack(frames)
+    
+    # Save to temp file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+    cv2.imwrite(temp_file.name, filmstrip)
+    return temp_file.name
+
 # Node 1: Analyst
 def analyze_videos(state: ContinuityState) -> dict:
-    print("--- Analyst Node (Director) ---")
+    print("--- Analyst Node (Director: Dual-Engine) ---")
     
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
@@ -58,62 +111,110 @@ def analyze_videos(state: ContinuityState) -> dict:
         if not path_c:
              path_c = download_to_temp(video_c_url)
         
-        print("Uploading videos to Gemini...")
-        file_a = client.files.upload(file=path_a)
-        file_c = client.files.upload(file=path_c)
-        
-        # Wait for processing? Usually quick for small files, but good practice to check state if needed.
-        # For simplicity in this agent, assuming ready or waiting implicitly. 
-        # (Gemini 1.5 Flash usually processes quickly)
+        # --- Create Filmstrips ---
+        print("Creating filmstrips for visual analysis...")
+        filmstrip_a_path = create_filmstrip(path_a, is_start=False) # End of A
+        filmstrip_c_path = create_filmstrip(path_c, is_start=True)  # Start of C
 
-        prompt = """
-        You are a film director. 
-        Analyze the motion, lighting, and subject of the first video (Video A) and the second video (Video C). 
-        Write a detailed visual prompt for a 2-second video (Video B) that smoothly transitions from the end of A to the start of C.
-        Target Output: A single concise descriptive paragraph for the video generation model.
-        """
-        
-        print("Generating transition prompt...")
-        response = None
-        for attempt in range(3):
-            try:
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=[prompt, file_a, file_c]
-                )
-                break
-            except Exception as e:
-                if "429" in str(e) or "Resource Exhausted" in str(e):
-                    print("Quota hit, waiting 30s...")
-                    time.sleep(30)
-                else:
-                    raise e
-        
-        if not response:
-             # raise Exception("Failed to generate content after retries") 
-             print("⚠️ Gemini Quota hit. Using fallback prompt.")
+        if not filmstrip_a_path or not filmstrip_c_path:
+             print("Warning: Could not create filmstrips. Using fallback prompt.")
              return {
-                "scene_analysis": "Quota exceeded, using default.",
-                "veo_prompt": "Smooth cinematic transition between the two clips, high quality, 4k, keeping style consistent.",
+                "scene_analysis": "Error creating filmstrips.", 
+                "veo_prompt": "Cinematic transition, high quality, 4k.",
                 "video_a_local_path": path_a,
                 "video_c_local_path": path_c
              }
-        
-        transition_prompt = response.text
-        print(f"Generated Prompt: {transition_prompt}")
-        
-        # Cleanup uploaded files from local ? (Files on server stay for 48h or until deleted)
-        # client.files.delete(name=file_a.name) 
-        # client.files.delete(name=file_c.name)
-        
-        # We also need these local paths for the Generator node to extract frames!
-        # Pass them in state or re-download? Better to pass paths if possible, but 
-        # State definition expects URLs. We can add temp paths to state or re-download.
-        # Let's add temp paths to state for efficiency.
-        
+
+        # --- Primary Engine: Gemini 2.0 Flash ---
+        print("Engaging Primary Engine: Gemini 2.0 Flash...")
+        try:
+             file_a = client.files.upload(file=filmstrip_a_path)
+             file_c = client.files.upload(file=filmstrip_c_path)
+
+             system_prompt = """
+             You are an expert film editor. Analyze these two 'filmstrips'. 
+             Image 1 shows the end of the first clip (time flows left-to-right). 
+             Image 2 shows the start of the next clip. 
+             Describe the motion, lighting, and subject connection required to seamlessly bridge A to C in a cinematic way.
+             Output a SINGLE concise paragraph for a video generation model.
+             """
+             
+             response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[system_prompt, file_a, file_c]
+             )
+             
+             transition_prompt = response.text
+             print(f"Gemini Generated Prompt: {transition_prompt}")
+             
+             # Cleanup uploaded files? (Optional, but good practice if high volume)
+             
+             final_prompt = transition_prompt
+
+        except Exception as e:
+            if "429" in str(e) or "Resource Exhausted" in str(e):
+                print(f"⚠️ Gemini Quota hit ({str(e)}). Switching to Fallback Engine...")
+                
+                # --- Fallback Engine: Groq Llama 3.2 Vision ---
+                print("Engaging Fallback Engine: Llama 3.2 Vision (Groq)...")
+                groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+                
+                def encode_image(image_path):
+                    with open(image_path, "rb") as image_file:
+                        return base64.b64encode(image_file.read()).decode('utf-8')
+                
+                base64_a = encode_image(filmstrip_a_path)
+                base64_c = encode_image(filmstrip_c_path)
+                
+                completion = groq_client.chat.completions.create(
+                    model="llama-3.2-11b-vision-preview",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "You are an expert film editor. Analyze these two 'filmstrips'. Image 1 shows the end of the first clip. Image 2 shows the start of the next clip. Describe the motion, lighting, and subject connection required to seamlessly bridge A to C in a cinematic way. Output a SINGLE concise paragraph for a video generation model."
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{base64_a}"
+                                    }
+                                },
+                                {
+                                     "type": "image_url",
+                                     "image_url": {
+                                         "url": f"data:image/jpeg;base64,{base64_c}"
+                                     }
+                                }
+                            ]
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=500,
+                    top_p=1,
+                    stream=False,
+                    stop=None,
+                )
+                
+                final_prompt = completion.choices[0].message.content
+                print(f"Groq Generated Prompt: {final_prompt}")
+            
+            else:
+                print(f"Error in Primary Engine: {e}")
+                raise e
+
+        # Cleanup local filmstrips
+        try:
+            os.remove(filmstrip_a_path)
+            os.remove(filmstrip_c_path)
+        except:
+             pass
+
         return {
-            "scene_analysis": transition_prompt, 
-            "veo_prompt": transition_prompt,
+            "scene_analysis": final_prompt, 
+            "veo_prompt": final_prompt,
             "video_a_local_path": path_a,
             "video_c_local_path": path_c
         }

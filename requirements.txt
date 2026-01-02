@@ -11,3 +11,5 @@ opencv-python-headless
 google-genai
 python-multipart
 Pillow
+
+groq
