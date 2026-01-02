@@ -159,7 +159,7 @@ def analyze_videos(state: ContinuityState) -> dict:
                 base64_c = encode_image(filmstrip_c_path)
                 
                 completion = groq_client.chat.completions.create(
-                    model="llama-3.2-11b-vision-preview",
+                    model="llama-3.2-90b-vision-preview",
                     messages=[
                         {
                             "role": "user",
