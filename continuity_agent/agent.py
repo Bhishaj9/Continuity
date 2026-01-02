@@ -1,19 +1,20 @@
 import os
 import time
 import shutil
-import requests
 import tempfile
 import base64
-import numpy as np
-import cv2
 from typing import TypedDict, Optional
-from langgraph.graph import StateGraph, END
-from langchain_google_genai import ChatGoogleGenerativeAI
-from google import genai
-from gradio_client import Client, handle_file
+
+import cv2
+import numpy as np
+import requests
 from groq import Groq
 from PIL import Image
 from dotenv import load_dotenv
+from google import genai
+from gradio_client import Client, handle_file
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.graph import StateGraph, END
 
 load_dotenv()
 
@@ -140,8 +141,6 @@ def analyze_videos(state: ContinuityState) -> dict:
              transition_prompt = response.text
              print(f"Gemini Generated Prompt: {transition_prompt}")
              
-             # Cleanup uploaded files? (Optional, but good practice if high volume)
-             
              final_prompt = transition_prompt
 
         except Exception as e:
@@ -260,6 +259,7 @@ def generate_video(state: ContinuityState) -> dict:
             else:
                 raise ValueError(f"Could not extract frame from {video_path}")
 
+    
         print("Extracting frames...")
         img_start = get_frame(path_a, "last")
         img_end = get_frame(path_c, "first")
