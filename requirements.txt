@@ -6,10 +6,11 @@ langchain-google-genai
 gradio_client
 pydantic
 requests
-
 opencv-python-headless
 google-genai
 python-multipart
 Pillow
-
 groq
+numpy
+gradio
+google-generativeai
