@@ -159,7 +159,7 @@ def analyze_videos(state: ContinuityState) -> dict:
                 base64_c = encode_image(filmstrip_c_path)
                 
                 completion = groq_client.chat.completions.create(
-                    model="llama-3.2-11b-vision-instruct",
+                    model="meta-llama/llama-4-scout-17b-16e-instruct",
                     messages=[
                         {
                             "role": "user",
@@ -298,6 +298,34 @@ def generate_video(state: ContinuityState) -> dict:
                 )
                 break
             except Exception as e:
+                error_str = str(e).lower()
+                if "quota" in error_str or "exceeded" in error_str:
+                    print("⚠️ Wan 2.2 Quota Hit. Switching to SVD Fallback...")
+                    try:
+                        # Initialize SVD Client
+                        client_svd = Client("stabilityai/stable-video-diffusion-img2vid-xt-1-1")
+                        
+                        # Resize frame to 1024x576 (Required for SVD)
+                        # We use start_path which was saved earlier from img_start
+                        first_frame = cv2.imread(start_path)
+                        frame_svd = cv2.resize(first_frame, (1024, 576))
+                        cv2.imwrite("temp_svd.jpg", frame_svd)
+        
+                        # Generate
+                        print("Generating with SVD...")
+                        result_svd = client_svd.predict(
+                            "temp_svd.jpg", # Input image
+                            0.0,            # Motion bucket
+                            127,            # FPS
+                            6,              # Motion scale
+                            api_name="/predict"
+                        )
+                        # SVD space returns a path to the MP4 file
+                        return {"generated_video_url": result_svd}
+                    except Exception as svd_e:
+                        print(f"❌ SVD Fallback also failed: {svd_e}")
+                        raise e # Re-raise original error if backup fails
+
                 print(f"⚠️ Attempt {i+1} failed: {e}. Retrying in 10s...")
                 time.sleep(10)
 
