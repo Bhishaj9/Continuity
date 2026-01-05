@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Form, File
+from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -6,7 +6,7 @@ import uvicorn
 import os
 import shutil
 import uuid
-from continuity_agent.agent import app as continuity_graph
+from continuity_agent.agent import analyze_only, generate_only
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 
@@ -26,11 +26,10 @@ app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 async def read_root():
     return FileResponse("stitch_continuity_dashboard/code.html")
 
-@app.post("/generate-transition")
-async def generate_transition(
+@app.post("/analyze")
+async def analyze_endpoint(
     video_a: UploadFile = File(...),
-    video_c: UploadFile = File(...),
-    prompt: str = Form("Cinematic transition")
+    video_c: UploadFile = File(...)
 ):
     try:
         request_id = str(uuid.uuid4())
@@ -45,28 +44,55 @@ async def generate_transition(
         with open(path_c, "wb") as buffer:
             shutil.copyfileobj(video_c.file, buffer)
             
-        initial_state = {
-            "video_a_url": "local_upload",
-            "video_c_url": "local_upload",
-            "user_notes": prompt,
-            "veo_prompt": prompt,
-            "video_a_local_path": os.path.abspath(path_a),
-            "video_c_local_path": os.path.abspath(path_c),
-            "generated_video_url": "", 
-            "status": "started"
-        }
+        # Call Agent
+        result = analyze_only(os.path.abspath(path_a), os.path.abspath(path_c))
         
-        result = continuity_graph.invoke(initial_state)
-        gen_path = result.get("generated_video_url")
+        if result.get("status") == "error":
+             raise HTTPException(status_code=500, detail=result.get("detail"))
+             
+        return {
+            "prompt": result["prompt"],
+            "video_a_path": os.path.abspath(path_a),
+            "video_c_path": os.path.abspath(path_c)
+        }
+    except Exception as e:
+        print(f"Server Error (Analyze): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate")
+async def generate_endpoint(
+    prompt: str = Body(...),
+    video_a_path: str = Body(...),
+    video_c_path: str = Body(...)
+):
+    try:
+        if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
+             raise HTTPException(status_code=400, detail="Video files not found on server.")
+             
+        # Call Agent
+        result = generate_only(prompt, video_a_path, video_c_path)
+        gen_path = result.get("video_url")
         
         if not gen_path or "Error" in gen_path:
             raise HTTPException(status_code=500, detail=f"Generation failed: {gen_path}")
             
-        final_filename = f"{request_id}_bridge.mp4"
+        # Move final file to output dir if it's not already there (SVD might return temp path)
+        final_filename = f"{uuid.uuid4()}_bridge.mp4"
         final_output_path = os.path.join(OUTPUT_DIR, final_filename)
-        shutil.move(gen_path, final_output_path)
+        
+        # If gen_path is a URL (some providers), we might need to handle differently
+        # But our agent functions return local paths (SVD) or temp paths (Wan)
+        if os.path.exists(gen_path):
+             shutil.move(gen_path, final_output_path)
+        else:
+             # Assume it's an error message or invalid
+             raise HTTPException(status_code=500, detail="Generated file missing.")
         
         return {"video_url": f"/outputs/{final_filename}"}
+        
+    except Exception as e:
+        print(f"Server Error (Generate): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         print(f"Server Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -245,23 +245,39 @@
   </main>
   <!-- Floating Action Bar (Director Controls) -->
   <div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
-    <div class="glass-panel rounded-full p-2 pl-6 flex items-center shadow-neon">
-      <div class="flex-1 flex items-center gap-3">
-        <span class="material-symbols-outlined text-gray-400">edit_note</span>
-        <input id="director-notes"
-          class="w-full bg-transparent border-none text-white placeholder-gray-500 focus:ring-0 text-sm font-medium"
-          placeholder="Add Director Notes (e.g., 'Slow dissolve', 'Cyber glitch')..." type="text" />
+    <!-- Analysis Panel (Step 1) -->
+    <div id="analysis-panel" class="glass-panel rounded-full p-2 pl-6 flex items-center justify-center shadow-neon">
+      <button id="analyze-btn"
+        class="flex items-center gap-2 bg-primary hover:bg-[#6b0bc9] text-white px-8 py-3 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(127,13,242,0.4)] hover:shadow-[0_0_25px_rgba(127,13,242,0.6)] whitespace-nowrap">
+        <span class="material-symbols-outlined text-[20px]">analytics</span>
+        Upload & Analyze Scenes
+      </button>
+    </div>
+
+    <!-- Review Panel (Step 2 - Hidden Initially) -->
+    <div id="review-panel" class="hidden glass-panel rounded-2xl p-4 flex flex-col gap-4 shadow-neon w-full">
+      <div class="flex items-center justify-between pb-2 border-b border-white/10">
+        <h3 class="text-white font-display font-bold">🎬 Director's Cut: Review Prompt</h3>
+        <button onclick="resetUI()"
+          class="text-gray-400 hover:text-white text-xs uppercase tracking-widest">Reset</button>
       </div>
-      <div class="h-8 w-[1px] bg-white/10 mx-2"></div>
+      <textarea id="prompt-box" rows="3"
+        class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+        placeholder="AI generated transition prompt will appear here..."></textarea>
+
       <button id="generate-btn"
-        class="flex items-center gap-2 bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(127,13,242,0.4)] hover:shadow-[0_0_25px_rgba(127,13,242,0.6)] whitespace-nowrap">
-        <span class="material-symbols-outlined text-[20px]">movie_filter</span>
-        Generate Transition
+        class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-[#6b0bc9] hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold text-lg transition-all shadow-lg">
+        <span class="material-symbols-outlined text-[24px]">movie_filter</span>
+        ACTION! (Generate Video)
       </button>
     </div>
   </div>
 
   <script>
+    // State
+    let currentVideoAPath = "";
+    let currentVideoCPath = "";
+
     // UI Helper: Update filename text when file is selected
     function handleFileSelect(input, labelId) {
       if (input.files && input.files[0]) {
@@ -271,14 +287,21 @@
       }
     }
 
-    // Main Logic: Send to Agent
-    const generateBtn = document.getElementById("generate-btn");
-    if (generateBtn) {
-      generateBtn.addEventListener("click", async () => {
+    function resetUI() {
+      document.getElementById("analysis-panel").classList.remove("hidden");
+      document.getElementById("review-panel").classList.add("hidden");
+      document.getElementById("prompt-box").value = "";
+      currentVideoAPath = "";
+      currentVideoCPath = "";
+    }
+
+    // Step 1: Analyze
+    const analyzeBtn = document.getElementById("analyze-btn");
+    if (analyzeBtn) {
+      analyzeBtn.addEventListener("click", async () => {
         const fileA = document.getElementById("video-upload-a").files[0];
         const fileC = document.getElementById("video-upload-c").files[0];
-        const notes = document.getElementById("director-notes").value;
-        const btn = document.getElementById("generate-btn");
+        const btn = document.getElementById("analyze-btn");
 
         // 1. Validation
         if (!fileA || !fileC) {
@@ -288,45 +311,98 @@
 
         // 2. Loading State
         const originalContent = btn.innerHTML;
-        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Director is working...`;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Analyzing Scenes...`;
         btn.disabled = true;
         btn.classList.add("opacity-70", "cursor-not-allowed");
 
         const formData = new FormData();
         formData.append("video_a", fileA);
         formData.append("video_c", fileC);
-        formData.append("prompt", notes || "Cinematic transition between scenes");
 
         try {
           // 3. Send to Server
-          const response = await fetch("/generate-transition", {
+          const response = await fetch("/analyze", {
             method: "POST",
             body: formData
           });
 
-          if (!response.ok) throw new Error("Agent backend returned an error.");
+          if (!response.ok) throw new Error("Analysis failed.");
 
           const data = await response.json();
 
-          // 4. Success: Inject Video into the Middle Card
-          const bridgeCard = document.getElementById("bridge-card");
+          // 4. Success: Show Review Panel
+          document.getElementById("prompt-box").value = data.prompt;
+          currentVideoAPath = data.video_a_path;
+          currentVideoCPath = data.video_c_path;
 
+          document.getElementById("analysis-panel").classList.add("hidden");
+          document.getElementById("review-panel").classList.remove("hidden");
+
+        } catch (error) {
+          console.error(error);
+          alert("❌ Analysis Failed: " + error.message);
+        } finally {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+          btn.classList.remove("opacity-70", "cursor-not-allowed");
+        }
+      });
+    }
+
+    // Step 2: Generate
+    const generateBtn = document.getElementById("generate-btn");
+    if (generateBtn) {
+      generateBtn.addEventListener("click", async () => {
+        const prompt = document.getElementById("prompt-box").value;
+        const btn = document.getElementById("generate-btn");
+
+        if (!currentVideoAPath || !currentVideoCPath) {
+          alert("Session lost. Please re-upload videos.");
+          resetUI();
+          return;
+        }
+
+        // Loading State
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Generating (This may take ~60s)...`;
+        btn.disabled = true;
+        btn.classList.add("opacity-70", "cursor-not-allowed");
+
+        try {
+          const response = await fetch("/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              prompt: prompt,
+              video_a_path: currentVideoAPath,
+              video_c_path: currentVideoCPath
+            })
+          });
+
+          if (!response.ok) throw new Error("Generation failed.");
+
+          const data = await response.json();
+
+          // Success: Inject Video
+          const bridgeCard = document.getElementById("bridge-card");
           if (bridgeCard) {
-            // Ensure we are replacing the inner content completely
             bridgeCard.innerHTML = `
-                <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
-                  <source src="${data.video_url}" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-              `;
-          } else {
-            console.error("Could not find the bridge card");
-            alert("Video generated, but could not place it in UI. Check console.");
+                        <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
+                        <source src="${data.video_url}" type="video/mp4">
+                        Your browser does not support the video tag.
+                        </video>
+                    `;
+            // Reset UI to allow new creation but keep video
+            document.getElementById("analysis-panel").classList.remove("hidden");
+            document.getElementById("review-panel").classList.add("hidden");
+            btn.innerHTML = originalContent; // Restore button just in case
           }
 
         } catch (error) {
           console.error(error);
-          alert("❌ Generation Failed: " + error.message + "\n\nMake sure 'python server.py' is running!");
+          alert("❌ Generation Failed: " + error.message);
         } finally {
           btn.innerHTML = originalContent;
           btn.disabled = false;
