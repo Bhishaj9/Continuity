@@ -1,372 +1,256 @@
 import os
 import time
 import shutil
-import tempfile
-import base64
-from typing import TypedDict, Optional
-
 import cv2
 import numpy as np
-import requests
+import base64
+import tempfile
 from groq import Groq
-from PIL import Image
-from dotenv import load_dotenv
 from google import genai
 from gradio_client import Client, handle_file
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import StateGraph, END
+from dotenv import load_dotenv
 
 load_dotenv()
 
-# State Definition
-class ContinuityState(TypedDict):
-    video_a_url: str
-    video_c_url: str
-    user_notes: Optional[str]
-    scene_analysis: Optional[str]
-    veo_prompt: Optional[str]
-    generated_video_url: Optional[str]
-    video_a_local_path: Optional[str]
-    video_c_local_path: Optional[str]
-
+# --- HELPER: Filmstrip Engine ---
 def create_filmstrip(video_path, samples=5, is_start=False):
-    """
-    Captures 'samples' frames from the first 2s (is_start=True) or last 2s (is_start=False).
-    Stitches them horizontally into a single filmstrip image.
-    Returns the file path of the saved filmstrip.
-    """
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration = total_frames / fps
-    
-    # Define time range
-    if is_start:
-        start_sec = 0
-        end_sec = min(2, duration)
-    else:
-        start_sec = max(0, duration - 2)
-        end_sec = duration
+    """Extracts frames and stitches them into a filmstrip for Vision analysis."""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        duration = total_frames / fps
 
-    target_times = np.linspace(start_sec, end_sec, samples)
-    frames = []
-
-    for t in target_times:
-        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
-        ret, frame = cap.read()
-        if ret:
-            # Resize logic: fixed height 300px, maintain aspect ratio
-            h, w = frame.shape[:2]
-            new_h = 300
-            scale = new_h / h
-            new_w = int(w * scale)
-            frame_resized = cv2.resize(frame, (new_w, new_h))
-            frames.append(frame_resized)
-    
-    cap.release()
-
-    if not frames:
+        # Determine extraction points
+        if is_start: # First 2 seconds
+            start_f = 0
+            end_f = int(min(total_frames, 2 * fps))
+            if end_f <= start_f: end_f = total_frames # Handle short videos
+        else: # Last 2 seconds
+            start_f = int(max(0, total_frames - 2 * fps))
+            end_f = total_frames
+            if start_f >= end_f: start_f = 0
+            
+        frame_indices = np.linspace(start_f, end_f - 1, samples, dtype=int)
+        frames = []
+        
+        for idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ret, frame = cap.read()
+            if ret:
+                # Resize for token efficiency (Height 300px)
+                h, w, _ = frame.shape
+                scale = 300 / h
+                new_w = int(w * scale)
+                frame = cv2.resize(frame, (new_w, 300))
+                frames.append(frame)
+        cap.release()
+        
+        if not frames:
+            raise ValueError("No frames extracted")
+            
+        # Stitch horizontally
+        filmstrip = cv2.hconcat(frames)
+        
+        # Use a consistent temp file pattern or unique name
+        temp_dir = tempfile.gettempdir()
+        output_path = os.path.join(temp_dir, f"temp_strip_{int(time.time())}_{'start' if is_start else 'end'}.jpg")
+        cv2.imwrite(output_path, filmstrip)
+        return output_path
+    except Exception as e:
+        print(f"⚠️ Filmstrip failed: {e}")
         return None
 
-    # Stitch horizontally
-    filmstrip = np.hstack(frames)
+# --- PHASE 1: ANALYZE ONLY ---
+def analyze_only(video_a_path: str, video_c_path: str):
+    print(f"🎬 Analyst: Processing videos...")
+
+    # Generate Filmstrips
+    strip_a = create_filmstrip(video_a_path, is_start=False)
+    strip_c = create_filmstrip(video_c_path, is_start=True)
     
-    # Save to temp file
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-    cv2.imwrite(temp_file.name, filmstrip)
-    return temp_file.name
-
-# Node 1: Analyst
-def analyze_videos(state: ContinuityState) -> dict:
-    print("--- Analyst Node (Director: Dual-Engine) ---")
-    
-    video_a_url = state['video_a_url']
-    video_c_url = state['video_c_url']
-    
-    # Initialize Google GenAI Client
-    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
-    
-    try:
-        # Download videos to temp files for analysis
-        def download_to_temp(url):
-            print(f"Downloading: {url}")
-            resp = requests.get(url, stream=True)
-            resp.raise_for_status()
-            suffix = os.path.splitext(url.split("/")[-1])[1] or ".mp4"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-                shutil.copyfileobj(resp.raw, f)
-                return f.name
-
-        path_a = state.get('video_a_local_path')
-        if not path_a:
-             path_a = download_to_temp(video_a_url)
-             
-        path_c = state.get('video_c_local_path')
-        if not path_c:
-             path_c = download_to_temp(video_c_url)
-        
-        # --- Create Filmstrips ---
-        print("Creating filmstrips for visual analysis...")
-        filmstrip_a_path = create_filmstrip(path_a, is_start=False) # End of A
-        filmstrip_c_path = create_filmstrip(path_c, is_start=True)  # Start of C
-
-        if not filmstrip_a_path or not filmstrip_c_path:
-             print("Warning: Could not create filmstrips. Using fallback prompt.")
-             return {
-                "scene_analysis": "Error creating filmstrips.", 
-                "veo_prompt": "Cinematic transition, high quality, 4k.",
-                "video_a_local_path": path_a,
-                "video_c_local_path": path_c
-             }
-
-        # --- Primary Engine: Gemini 2.0 Flash ---
-        print("Engaging Primary Engine: Gemini 2.0 Flash...")
-        try:
-             file_a = client.files.upload(file=filmstrip_a_path)
-             file_c = client.files.upload(file=filmstrip_c_path)
-
-             system_prompt = """
-             You are an expert film editor. Analyze these two 'filmstrips'. 
-             Image 1 shows the end of the first clip (time flows left-to-right). 
-             Image 2 shows the start of the next clip. 
-             Describe the motion, lighting, and subject connection required to seamlessly bridge A to C in a cinematic way.
-             Output a SINGLE concise paragraph for a video generation model.
-             """
-             
-             response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=[system_prompt, file_a, file_c]
-             )
-             
-             transition_prompt = response.text
-             print(f"Gemini Generated Prompt: {transition_prompt}")
-             
-             final_prompt = transition_prompt
-
-        except Exception as e:
-            if "429" in str(e) or "Resource Exhausted" in str(e):
-                print(f"⚠️ Gemini Quota hit ({str(e)}). Switching to Fallback Engine...")
-                
-                # --- Fallback Engine: Groq Llama 3.2 Vision ---
-                print("Engaging Fallback Engine: Llama 3.2 Vision (Groq)...")
-                groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-                
-                def encode_image(image_path):
-                    with open(image_path, "rb") as image_file:
-                        return base64.b64encode(image_file.read()).decode('utf-8')
-                
-                base64_a = encode_image(filmstrip_a_path)
-                base64_c = encode_image(filmstrip_c_path)
-                
-                completion = groq_client.chat.completions.create(
-                    model="meta-llama/llama-4-scout-17b-16e-instruct",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": "You are an expert film editor. Analyze these two 'filmstrips'. Image 1 shows the end of the first clip. Image 2 shows the start of the next clip. Describe the motion, lighting, and subject connection required to seamlessly bridge A to C in a cinematic way. Output a SINGLE concise paragraph for a video generation model."
-                                },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_a}"
-                                    }
-                                },
-                                {
-                                     "type": "image_url",
-                                     "image_url": {
-                                         "url": f"data:image/jpeg;base64,{base64_c}"
-                                     }
-                                }
-                            ]
-                        }
-                    ],
-                    temperature=0.7,
-                    max_tokens=500,
-                    top_p=1,
-                    stream=False,
-                    stop=None,
-                )
-                
-                final_prompt = completion.choices[0].message.content
-                print(f"Groq Generated Prompt: {final_prompt}")
-            
-            else:
-                print(f"Error in Primary Engine: {e}")
-                raise e
-
-        # Cleanup local filmstrips
-        try:
-            os.remove(filmstrip_a_path)
-            os.remove(filmstrip_c_path)
-        except:
-             pass
-
+    if not strip_a or not strip_c:
         return {
-            "scene_analysis": final_prompt, 
-            "veo_prompt": final_prompt,
-            "video_a_local_path": path_a,
-            "video_c_local_path": path_c
+            "prompt": "Cinematic transition between scenes.",
+            "video_a_path": video_a_path,
+            "video_c_path": video_c_path,
+            "status": "warning",
+            "detail": "Could not create filmstrips"
         }
 
-    except Exception as e:
-        print(f"Error in Analyst: {e}")
-        return {"scene_analysis": f"Error: {str(e)}", "veo_prompt": "Error"}
+    prompt = "Smooth cinematic transition." # Default safety
 
-
-# Node 2: Generator (Wan 2.2 First Last Frame)
-def generate_video(state: ContinuityState) -> dict:
-    print("--- Generator Node (Wan 2.2) ---")
-    
-    prompt = state.get('veo_prompt', "")
-    path_a = state.get('video_a_local_path')
-    path_c = state.get('video_c_local_path')
-    
-    if not path_a or not path_c:
-        # Fallback if dependencies failed or state clean
-        # Re-download logic would go here, but assuming flow works
-        return {"generated_video_url": "Error: Missing local video paths"}
-
+    # 1. Try Gemini 2.0 (Primary)
     try:
-        # Extract Frames
-        import cv2
-        from PIL import Image
+        print("🤖 Engaging Gemini 2.0...")
+        client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY")) # Using correct env var name
         
-        def get_frame(video_path, location="last"):
-            cap = cv2.VideoCapture(video_path)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            if location == "last":
-                cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames - 1)
-            else: # first
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        file_a = client.files.upload(file=strip_a)
+        file_c = client.files.upload(file=strip_c)
+
+        system_prompt = """
+        You are an expert film editor. Analyze these two 'filmstrips'. 
+        Image 1 shows the end of the first clip (time flows left-to-right). 
+        Image 2 shows the start of the next clip. 
+        Describe the motion, lighting, and subject connection required to seamlessly bridge A to C in a cinematic way.
+        Output a SINGLE concise paragraph for a video generation model.
+        """
+        
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[system_prompt, file_a, file_c]
+        )
+        
+        if response.text:
+            prompt = response.text
             
+        # raise Exception("Force Fallback for Testing") # Commented out for production use unless specifically testing
+        
+    except Exception as e:
+        print(f"⚠️ Gemini Quota/Error: {e}. Switching to Llama 3.2 (Groq)...")
+        
+        # 2. Try Groq (Fallback)
+        try:
+            groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            
+            def encode_image(image_path):
+                with open(image_path, "rb") as image_file:
+                    return base64.b64encode(image_file.read()).decode('utf-8')
+            
+            b64_a = encode_image(strip_a)
+            b64_c = encode_image(strip_c)
+            
+            completion = groq_client.chat.completions.create(
+                model="llama-3.2-11b-vision-instruct", 
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "These images show the END of Clip A and START of Clip C. Describe a smooth visual transition to bridge them."},
+                            {
+                                "type": "image_url", 
+                                "image_url": {"url": f"data:image/jpeg;base64,{b64_a}"}
+                            },
+                             {
+                                "type": "image_url", 
+                                "image_url": {"url": f"data:image/jpeg;base64,{b64_c}"}
+                            }
+                        ]
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            prompt = completion.choices[0].message.content
+        except Exception as groq_e:
+            print(f"❌ Groq also failed: {groq_e}. Using default prompt.")
+
+    # Cleanup
+    try:
+        if os.path.exists(strip_a): os.remove(strip_a)
+        if os.path.exists(strip_c): os.remove(strip_c)
+    except:
+        pass
+
+    return {
+        "prompt": prompt,
+        "video_a_path": video_a_path,
+        "video_c_path": video_c_path,
+        "status": "success"
+    }
+
+# --- PHASE 2: GENERATE ONLY ---
+def generate_only(prompt: str, video_a_path: str, video_c_path: str):
+    print(f"🎥 Generator: Action! Prompt: {prompt[:50]}...")
+
+    # 1. Primary: Wan 2.2
+    try:
+        # Extract Frames for Wan
+        # We need to save temporary frames because handle_file expects a path
+        def get_frame(v_path, at_start):
+            cap = cv2.VideoCapture(v_path)
+            if not at_start:
+                 total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                 cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, total-1))
+            ret, frame = cap.read()
+            cap.release()
+            if not ret: raise ValueError("Frame extract failed")
+            
+            # Resize safe for Wan
+            h, w = frame.shape[:2]
+            if h > 480:
+                scale = 480/h
+                frame = cv2.resize(frame, (int(w*scale), 480))
+            
+            t_path = os.path.join(tempfile.gettempdir(), f"wan_frame_{int(time.time())}_{'s' if at_start else 'e'}.png")
+            cv2.imwrite(t_path, frame)
+            return t_path
+
+        f_start = get_frame(video_a_path, False) # Last frame of A
+        f_end = get_frame(video_c_path, True)    # First frame of C
+
+        client = Client("multimodalart/wan-2-2-first-last-frame", token=os.environ.get("HF_TOKEN"))
+        
+        print("Generating with Wan 2.2...")
+        result = client.predict(
+            start_image_pil=handle_file(f_start),
+            end_image_pil=handle_file(f_end),
+            prompt=prompt,
+            negative_prompt="blurry, distorted, low quality, static",
+            duration_seconds=2.1,
+            steps=20,
+            guidance_scale=5.0,
+            guidance_scale_2=5.0,
+            seed=42,
+            randomize_seed=True,
+            api_name="/generate_video" 
+        )
+        
+        # Cleanup temp
+        try:
+            os.remove(f_start)
+            os.remove(f_end)
+        except: pass
+
+        # Parse result
+        video_out = result[0]
+        if isinstance(video_out, dict) and 'video' in video_out:
+             return {"video_url": video_out['video']}
+        elif isinstance(video_out, str):
+             return {"video_url": video_out}
+        else:
+             raise ValueError(f"Unknown Wan output: {result}")
+
+    except Exception as e:
+        print(f"⚠️ Wan 2.2 Failed (Quota/Error): {e}")
+        print("🔄 Switching to SVD Fallback...")
+        
+        # 2. Fallback: SVD (Image-to-Video)
+        try:
+            client_svd = Client("stabilityai/stable-video-diffusion-img2vid-xt-1-1")
+            
+            # Extract last frame of A for SVD input
+            cap = cv2.VideoCapture(video_a_path)
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, total-1)
             ret, frame = cap.read()
             cap.release()
             
-            if ret:
-                # Resize to a safe resolution (height=480) to prevent server crash
-                height, width = frame.shape[:2]
-                if height > 480:
-                    scale = 480 / height
-                    new_width = int(width * scale)
-                    frame = cv2.resize(frame, (new_width, 480))
-
-                # Convert BGR to RGB
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                return Image.fromarray(frame_rgb)
-            else:
-                raise ValueError(f"Could not extract frame from {video_path}")
-
-    
-        print("Extracting frames...")
-        img_start = get_frame(path_a, "last")
-        img_end = get_frame(path_c, "first")
-        
-        # Save frames to temp files for Gradio Client (it handles file paths better than PIL objects usually)
-        # Although client.predict might take PIL, handle_file is safer with paths.
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f_start:
-            img_start.save(f_start, format="PNG")
-            start_path = f_start.name
+            # Resize for SVD (1024x576 recommended or similar 16:9)
+            frame = cv2.resize(frame, (1024, 576))
             
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f_end:
-            img_end.save(f_end, format="PNG")
-            end_path = f_end.name
-
-        # Call Wan 2.2
-        print("Initializing Wan Client...")
-        client = Client("multimodalart/wan-2-2-first-last-frame", token=os.environ.get("HF_TOKEN"))
-        
-        result = None
-        for i in range(3):
-            try:
-                print(f"Generating transition with prompt: {prompt[:50]}... (Attempt {i+1})")
-                # predict(start_image, end_image, prompt, negative_prompt, duration, steps, guide, guide2, seed, rand, api_name)
-                result = client.predict(
-                    start_image_pil=handle_file(start_path),
-                    end_image_pil=handle_file(end_path),
-                    prompt=prompt,
-                    negative_prompt="blurry, distorted, low quality, static",
-                    duration_seconds=2.1,
-                    steps=20, # Default is often around 20-30 for good quality
-                    guidance_scale=5.0,
-                    guidance_scale_2=5.0,
-                    seed=42,
-                    randomize_seed=True,
-                    api_name="/generate_video"
-                )
-                break
-            except Exception as e:
-                error_str = str(e).lower()
-                if "quota" in error_str or "exceeded" in error_str:
-                    print("⚠️ Wan 2.2 Quota Hit. Switching to SVD Fallback...")
-                    try:
-                        # Initialize SVD Client
-                        client_svd = Client("stabilityai/stable-video-diffusion-img2vid-xt-1-1")
-                        
-                        # Resize frame to 1024x576 (Required for SVD)
-                        # We use start_path which was saved earlier from img_start
-                        first_frame = cv2.imread(start_path)
-                        frame_svd = cv2.resize(first_frame, (1024, 576))
-                        cv2.imwrite("temp_svd.jpg", frame_svd)
-        
-                        # Generate
-                        print("Generating with SVD...")
-                        result_svd = client_svd.predict(
-                            "temp_svd.jpg", # Input image
-                            0.0,            # Motion bucket
-                            127,            # FPS
-                            6,              # Motion scale
-                            api_name="/predict"
-                        )
-                        # SVD space returns a path to the MP4 file
-                        return {"generated_video_url": result_svd}
-                    except Exception as svd_e:
-                        print(f"❌ SVD Fallback also failed: {svd_e}")
-                        raise e # Re-raise original error if backup fails
-
-                print(f"⚠️ Attempt {i+1} failed: {e}. Retrying in 10s...")
-                time.sleep(10)
-
-        if result is None:
-            return {"generated_video_url": "Error: Generator failed after 3 retries."}
-        
-        # Clean up temp frames and videos
-        try:
-            os.remove(start_path)
-            os.remove(end_path)
-            os.remove(path_a)
-            os.remove(path_c)
-        except:
-            pass
-
-        # Parse valid result
-        # Expected: ({'video': path, ...}, seed) or just path depending on version
-        # Based on inspection: (generated_video_mp4, seed)
-        video_out = result[0]
-        if isinstance(video_out, dict) and 'video' in video_out:
-             return {"generated_video_url": video_out['video']}
-        elif isinstance(video_out, str) and os.path.exists(video_out):
-             return {"generated_video_url": video_out}
-        else:
-             return {"generated_video_url": f"Error: Unexpected output {result}"}
-
-    except Exception as e:
-        print(f"Error in Generator: {e}")
-        return {"generated_video_url": f"Error: {str(e)}"}
-
-
-# Graph Construction
-workflow = StateGraph(ContinuityState)
-
-workflow.add_node("analyst", analyze_videos)
-# workflow.add_node("prompter", draft_prompt) # Skipped, Analyst does extraction + prompting
-workflow.add_node("generator", generate_video)
-
-workflow.set_entry_point("analyst")
-
-workflow.add_edge("analyst", "generator")
-workflow.add_edge("generator", END)
-
-app = workflow.compile()
+            svd_input_path = os.path.join(tempfile.gettempdir(), "svd_input.jpg")
+            cv2.imwrite(svd_input_path, frame)
+            
+            print("Generating with SVD...")
+            result = client_svd.predict(
+                svd_input_path,
+                0.0, 127, 6, 
+                api_name="/predict"
+            )
+            return {"video_url": result} 
+            
+        except Exception as svd_e:
+            err_msg = f"All Generators Failed. Wan: {e}, SVD: {svd_e}"
+            print(f"❌ {err_msg}")
+            return {"video_url": f"Error: {err_msg}"}
