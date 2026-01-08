@@ -71,7 +71,7 @@ async def generate_endpoint(
              
         # Call Agent
         result = generate_only(prompt, video_a_path, video_c_path)
-        gen_path = result.get("video_url")
+        gen_path = result.get("generated_video_url")
         
         if not gen_path or "Error" in gen_path:
             raise HTTPException(status_code=500, detail=f"Generation failed: {gen_path}")
