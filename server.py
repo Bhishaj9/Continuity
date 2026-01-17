@@ -6,7 +6,8 @@ import uvicorn
 import os
 import shutil
 import uuid
-from continuity_agent.agent import analyze_only, generate_only
+# FIXED IMPORT: Importing from root agent.py instead of continuity_agent
+from agent import analyze_only, generate_only
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 
@@ -24,6 +25,7 @@ app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
 @app.get("/")
 async def read_root():
+    # Serve the dashboard HTML
     return FileResponse("stitch_continuity_dashboard/code.html")
 
 @app.post("/analyze")
@@ -38,18 +40,18 @@ async def analyze_endpoint(
 
         path_a = os.path.join(OUTPUT_DIR, f"{request_id}_a{ext_a}")
         path_c = os.path.join(OUTPUT_DIR, f"{request_id}_c{ext_c}")
-        
+    
         with open(path_a, "wb") as buffer:
             shutil.copyfileobj(video_a.file, buffer)
         with open(path_c, "wb") as buffer:
             shutil.copyfileobj(video_c.file, buffer)
-            
-        # Call Agent
-        result = analyze_only(os.path.abspath(path_a), os.path.abspath(path_c))
         
+        # Call Agent with local paths
+        result = analyze_only(os.path.abspath(path_a), os.path.abspath(path_c))
+    
         if result.get("status") == "error":
              raise HTTPException(status_code=500, detail=result.get("detail"))
-             
+         
         return {
             "prompt": result["prompt"],
             "video_a_path": os.path.abspath(path_a),
@@ -68,7 +70,7 @@ async def generate_endpoint(
     try:
         if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
              raise HTTPException(status_code=400, detail="Video files not found on server.")
-             
+
         # Call Agent
         result = generate_only(prompt, video_a_path, video_c_path)
         gen_path = result.get("generated_video_url")
@@ -76,25 +78,18 @@ async def generate_endpoint(
         if not gen_path or "Error" in gen_path:
             raise HTTPException(status_code=500, detail=f"Generation failed: {gen_path}")
             
-        # Move final file to output dir if it's not already there (SVD might return temp path)
         final_filename = f"{uuid.uuid4()}_bridge.mp4"
         final_output_path = os.path.join(OUTPUT_DIR, final_filename)
         
-        # If gen_path is a URL (some providers), we might need to handle differently
-        # But our agent functions return local paths (SVD) or temp paths (Wan)
         if os.path.exists(gen_path):
              shutil.move(gen_path, final_output_path)
         else:
-             # Assume it's an error message or invalid
              raise HTTPException(status_code=500, detail="Generated file missing.")
         
         return {"video_url": f"/outputs/{final_filename}"}
         
     except Exception as e:
         print(f"Server Error (Generate): {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        print(f"Server Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
