@@ -104,6 +104,20 @@ def analyze_videos(state: ContinuityState) -> dict:
             file_a = client.files.upload(file=path_a)
             file_c = client.files.upload(file=path_c)
 
+            # --- FIX: WAIT FOR ACTIVE STATE ---
+            logger.info("Waiting for video processing...")
+            while file_a.state.name == "PROCESSING":
+                time.sleep(2)
+                file_a = client.files.get(name=file_a.name)
+                
+            while file_c.state.name == "PROCESSING":
+                time.sleep(2)
+                file_c = client.files.get(name=file_c.name)
+                
+            if file_a.state.name != "ACTIVE" or file_c.state.name != "ACTIVE":
+                logger.error(f"File state issue. A: {file_a.state.name}, C: {file_c.state.name}")
+                raise Exception("Gemini files not active.")
+
             prompt_text = """
             You are a film director. 
             Analyze the motion, lighting, and subject of the first video (Video A) and the second video (Video C). 
@@ -136,7 +150,7 @@ def analyze_videos(state: ContinuityState) -> dict:
             groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
             fallback_prompt = "Create a smooth, cinematic visual transition that bridges two scenes."
             completion = groq_client.chat.completions.create(
-                model="llama-3.2-11b-vision-preview",
+                model="llama-3.2-90b-vision-preview",
                 messages=[{"role": "user", "content": f"Refine this into a video prompt: {fallback_prompt}"}]
             )
             transition_prompt = completion.choices[0].message.content
@@ -217,6 +231,10 @@ def generate_video(state: ContinuityState) -> dict:
             logger.warning("⚠️ GCP_PROJECT_ID not set. Skipping Veo.")
             
     except Exception as e:
+        # --- FIX: DETAILED LOGGING FOR 403 ---
+        err_str = str(e)
+        if "403" in err_str or "PERMISSION_DENIED" in err_str:
+            logger.warning("⚠️ Veo Permission Error. Please ensure the 'Vertex AI API' is enabled in your Google Cloud Console.")
         logger.warning(f"⚠️ Veo Failed: {e}")
         # Fallback to SVD below
 
