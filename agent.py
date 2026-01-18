@@ -198,7 +198,7 @@ def generate_video(state: ContinuityState) -> dict:
             logger.info(f"Waiting for Veo operation {operation.name}...")
             while not operation.done:
                 time.sleep(10)
-                # --- FIX: PASS OPERATION OBJECT, NOT NAME ---
+                # Pass operation object, not name
                 operation = client.operations.get(operation)
                 logger.info("...still generating...")
                 
@@ -216,7 +216,8 @@ def generate_video(state: ContinuityState) -> dict:
                     logger.info(f"✅ Veo Video Downloaded: {local_path}")
                     return {"generated_video_url": local_path}
                 else:
-                    logger.warning("Veo operation completed but no URI found.")
+                    # --- FIX: LOG FULL RESULT FOR DEBUGGING ---
+                    logger.warning(f"Veo operation completed but no URI found. Full Result: {video_result}")
             else:
                 logger.warning("Veo operation completed with no result.")
             
@@ -252,13 +253,15 @@ def generate_video(state: ContinuityState) -> dict:
             start_path = f_start.name
             
         client = Client("multimodalart/stable-video-diffusion")
-        # --- FIX: REMOVED API_NAME ---
+        # --- FIX: ADDED API_NAME ---
         result = client.predict(
             handle_file(start_path),
-            0.0, 0.0, 1, 25
+            0.0, 0.0, 1, 25,
+            api_name="/video" 
         )
         logger.info(f"✅ SVD Generated: {result}")
-        return {"generated_video_url": result}
+        # Handle tuple return if necessary
+        return {"generated_video_url": result[0] if isinstance(result, tuple) else result}
         
     except Exception as e:
         logger.error(f"❌ All Generators Failed. Error: {e}")
