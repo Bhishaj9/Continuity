@@ -43,7 +43,8 @@ def generate_audio(prompt: str) -> Optional[str]:
     try:
         logger.info(f"🎵 Generating Audio for: {prompt[:30]}...")
 
-        API_URL = "https://api-inference.huggingface.co/models/cvssp/audioldm-12.8k-caps"
+        # --- FIX: Updated to new Router API (Old api-inference is deprecated/410) ---
+        API_URL = "https://router.huggingface.co/hf-inference/models/cvssp/audioldm-12.8k-caps"
         headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
         payload = {"inputs": prompt}
         
@@ -283,7 +284,7 @@ app = workflow.compile()
 
 # --- SERVER COMPATIBILITY WRAPPERS ---
 def analyze_only(state_or_path_a, path_c=None, job_id=None, style="Cinematic"):
-    if isinstance(state_or_path_a, str) and path_c:
+    if isinstance(state_or_path_a, str):
         state = {
             "job_id": job_id,
             "video_a_url": "local",
@@ -293,12 +294,9 @@ def analyze_only(state_or_path_a, path_c=None, job_id=None, style="Cinematic"):
             "style": style
         }
     else:
-        state = state_or_path_a if isinstance(state_or_path_a, dict) else state_or_path_a.dict()
-        if job_id and "job_id" not in state:
-            state["job_id"] = job_id
-        # Ensure style is in state
-        if "style" not in state:
-            state["style"] = style
+        state = state_or_path_a
+        state["job_id"] = job_id
+        state["style"] = style
 
     result = analyze_videos(state)
     return {"prompt": result.get("scene_analysis"), "status": "success"}
