@@ -12,6 +12,8 @@ from google.genai import types
 # Import other clients
 from groq import Groq
 from gradio_client import Client, handle_file
+from huggingface_hub import InferenceClient
+import subprocess
 
 # Import refactored modules
 from config import Settings
@@ -26,12 +28,59 @@ class ContinuityState(TypedDict):
     job_id: Optional[str] # Added job_id
     video_a_url: str
     video_c_url: str
+    style: Optional[str]
+    audio_prompt: Optional[str]
     user_notes: Optional[str]
     scene_analysis: Optional[str]
     veo_prompt: Optional[str]
     generated_video_url: Optional[str]
     video_a_local_path: Optional[str]
     video_c_local_path: Optional[str]
+
+def generate_audio(prompt: str) -> str:
+    """Generates audio SFX using AudioLDM."""
+    try:
+        logger.info(f"🎵 Generating Audio for: {prompt}")
+        # Use a model good for SFX/Atmosphere
+        client = InferenceClient("cvssp/audioldm-12.8k-caps", token=Settings.HF_TOKEN)
+        audio_pil = client.text_to_audio(prompt)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+            # AudioLDM usually returns a numpy array or similar depending on the library version, 
+            # but InferenceClient.text_to_audio returns a helper object or bytes. 
+            # Let's handle the specific return type of huggingface_hub.InferenceClient.text_to_audio
+            # It returns a helper that has .save()
+            audio_pil.save(f.name)
+            return f.name
+    except Exception as e:
+        logger.error(f"Audio generation failed: {e}")
+        return None
+
+def merge_audio_video(video_path: str, audio_path: str) -> str:
+    """Merges video and audio using ffmpeg."""
+    if not audio_path:
+        return video_path
+        
+    try:
+        output_path = video_path.replace(".mp4", "_merged.mp4")
+        logger.info(f"Mergin Audio/Video: {video_path} + {audio_path} -> {output_path}")
+        
+        # ffmpeg command: -i video -i audio -c:v copy -c:a aac -shortest output
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", audio_path,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            output_path
+        ]
+        
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return output_path
+    except Exception as e:
+        logger.error(f"FFmpeg Merge Failed: {e}")
+        return video_path
 
 # --- NODE 1: ANALYST ---
 def analyze_videos(state: ContinuityState) -> dict:
@@ -42,6 +91,7 @@ def analyze_videos(state: ContinuityState) -> dict:
 
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
+    style = state.get('style', 'Cinematic')
     
     # 1. Prepare Files
     try:
@@ -87,10 +137,13 @@ def analyze_videos(state: ContinuityState) -> dict:
                 logger.error(f"File state issue. A: {file_a.state.name}, C: {file_c.state.name}")
                 raise Exception("Gemini files not active.")
             
-            prompt_text = """
+            prompt_text = f"""
             You are a film director. 
             Analyze the motion, lighting, and subject of the first video (Video A) and the second video (Video C). 
             Write a detailed visual prompt for a 2-second video (Video B) that smoothly transitions from the end of A to the start of C.
+            
+            STYLE INSTRUCTION: The user wants the style to be "{style}". Ensure the visual description reflects this style (e.g., color grading, camera movement, atmosphere).
+            
             Target Output: A single concise descriptive paragraph for the video generation model.
             """
             
@@ -216,6 +269,19 @@ def generate_video(state: ContinuityState) -> dict:
 
             else:
                 logger.warning("Veo operation completed with no result.")
+
+            # --- AUDIO & MERGE ---
+            if local_path:
+                update_job_status(job_id, "generating", 90, "Generating audio SFX...")
+                audio_path = generate_audio(prompt)
+                
+                if audio_path:
+                    update_job_status(job_id, "generating", 95, "Merging audio and video...")
+                    final_path = merge_audio_video(local_path, audio_path)
+                    local_path = final_path
+                
+                update_job_status(job_id, "completed", 100, "Done!", video_url=local_path)
+                return {"generated_video_url": local_path}
                 
         else:
             logger.warning("⚠️ GCP_PROJECT_ID not set. Skipping Veo.")
@@ -296,7 +362,8 @@ def analyze_only(state_or_path_a, path_c=None, job_id=None):
             "video_a_url": "local",
             "video_c_url": "local",
             "video_a_local_path": state_or_path_a,
-            "video_c_local_path": path_c
+            "video_c_local_path": path_c,
+            "style": "Cinematic" # Default
         }
     else:
         state = state_or_path_a if isinstance(state_or_path_a, dict) else state_or_path_a.dict()
@@ -306,13 +373,14 @@ def analyze_only(state_or_path_a, path_c=None, job_id=None):
     result = analyze_videos(state)
     return {"prompt": result.get("scene_analysis"), "status": "success"}
 
-def generate_only(prompt, path_a, path_c, job_id=None):
+def generate_only(prompt, path_a, path_c, job_id=None, style="Cinematic"):
     state = {
         "job_id": job_id,
         "video_a_url": "local",
         "video_c_url": "local",
         "video_a_local_path": path_a,
         "video_c_local_path": path_c,
-        "veo_prompt": prompt
+        "veo_prompt": prompt,
+        "style": style
     }
     return generate_video(state)

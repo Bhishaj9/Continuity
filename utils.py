@@ -4,7 +4,9 @@ import requests
 import tempfile
 import logging
 import json
+from datetime import datetime, timedelta
 from google.cloud import storage
+from config import Settings
 
 # Configure logging for utils
 logger = logging.getLogger(__name__)
@@ -36,6 +38,55 @@ def download_blob(gcs_uri, destination_file_name):
     blob.download_to_filename(destination_file_name)
     logger.info(f"Downloaded storage object {gcs_uri} to local file {destination_file_name}.")
 
+def upload_to_gcs(local_path, destination_blob_name):
+    """Uploads a file to the bucket."""
+    bucket_name = Settings.GCP_BUCKET_NAME
+    if not bucket_name:
+        logger.warning("GCP_BUCKET_NAME not set. Skipping upload.")
+        return None
+
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(local_path)
+        
+        # Generate signed URL (valid for 1 hour)
+        url = blob.generate_signed_url(expiration=timedelta(hours=1), method='GET')
+        logger.info(f"Uploaded {local_path} to {destination_blob_name}. URL: {url}")
+        return url
+    except Exception as e:
+        logger.error(f"Failed to upload to GCS: {e}")
+        return None
+
+def get_history_from_gcs():
+    """Lists recent videos from GCS."""
+    bucket_name = Settings.GCP_BUCKET_NAME
+    if not bucket_name:
+        return []
+
+    try:
+        storage_client = storage.Client()
+        blobs = storage_client.list_blobs(bucket_name)
+        
+        # Sort by time created (newest first)
+        sorted_blobs = sorted(blobs, key=lambda b: b.time_created, reverse=True)
+        
+        history = []
+        for blob in sorted_blobs[:20]: # Limit to 20
+             if blob.name.endswith(".mp4"):
+                 url = blob.generate_signed_url(expiration=timedelta(hours=1), method='GET')
+                 history.append({
+                     "name": blob.name,
+                     "url": url,
+                     "created": blob.time_created.isoformat()
+                 })
+        return history
+    except Exception as e:
+        logger.error(f"Failed to list GCS history: {e}")
+        return []
+
 def save_video_bytes(bytes_data, suffix=".mp4") -> str:
     """Saves raw video bytes to a temporary local file."""
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
@@ -64,6 +115,11 @@ def update_job_status(job_id, status, progress, log=None, video_url=None):
             logger.info(f"Moved video to {destination}")
             # Set public URL relative to server root
             final_video_url = f"/outputs/{final_filename}"
+            
+            # --- AUTO BACKUP TO CLOUD ---
+            if Settings.GCP_BUCKET_NAME:
+                logger.info(f"Backing up {final_filename} to GCS...")
+                upload_to_gcs(destination, final_filename)
         except Exception as e:
             logger.error(f"Failed to move output video: {e}")
 

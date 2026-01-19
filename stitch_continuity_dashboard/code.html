@@ -275,6 +275,20 @@
         class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
         placeholder="AI generated transition prompt will appear here..."></textarea>
 
+      <div class="flex flex-col gap-2">
+        <label for="style-select" class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Creative
+          Style</label>
+        <select id="style-select"
+          class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+          <option value="Cinematic">Cinematic (Default)</option>
+          <option value="Anime">Anime</option>
+          <option value="Cyberpunk">Cyberpunk</option>
+          <option value="VHS Glitch">VHS Glitch</option>
+          <option value="Claymation">Claymation</option>
+          <option value="Noir">Noir</option>
+        </select>
+      </div>
+
       <button id="generate-btn"
         class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-[#6b0bc9] hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold text-lg transition-all shadow-lg">
         <span class="material-symbols-outlined text-[24px]">movie_filter</span>
@@ -364,6 +378,7 @@
     if (generateBtn) {
       generateBtn.addEventListener("click", async () => {
         const prompt = document.getElementById("prompt-box").value;
+        const style = document.getElementById("style-select").value;
         const btn = document.getElementById("generate-btn");
 
         if (!currentVideoAPath || !currentVideoCPath) {
@@ -386,6 +401,7 @@
             },
             body: JSON.stringify({
               prompt: prompt,
+              style: style,
               video_a_path: currentVideoAPath,
               video_c_path: currentVideoCPath
             })

@@ -8,6 +8,7 @@ import shutil
 import uuid
 import json
 from agent import analyze_only, generate_only
+from utils import get_history_from_gcs
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 
@@ -65,6 +66,7 @@ def analyze_endpoint(
 def generate_endpoint(
     background_tasks: BackgroundTasks,
     prompt: str = Body(...),
+    style: str = Body("Cinematic"),
     video_a_path: str = Body(...),
     video_c_path: str = Body(...)
 ):
@@ -81,7 +83,7 @@ def generate_endpoint(
             json.dump({"status": "queued", "progress": 0, "log": "Job queued..."}, f)
 
         # Add to background tasks
-        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id)
+        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style)
         
         return {"job_id": job_id}
         
@@ -101,6 +103,11 @@ def get_status(job_id: str):
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading status: {e}")
+
+@app.get("/history")
+def get_history():
+    """Returns list of past generated videos from GCS."""
+    return get_history_from_gcs()
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=7860, reload=False)
