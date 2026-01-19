@@ -4,6 +4,7 @@ import logging
 import json
 import subprocess
 import tempfile
+import requests  # <--- NEW IMPORT
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 
@@ -38,17 +39,23 @@ class ContinuityState(TypedDict):
     video_c_local_path: Optional[str]
 
 def generate_audio(prompt: str) -> Optional[str]:
-    """Generates audio SFX using AudioLDM."""
+    """Generates audio SFX using AudioLDM via Direct API Call."""
     try:
         logger.info(f"🎵 Generating Audio for: {prompt[:30]}...")
-        # Use a model good for SFX/Atmosphere
-        client = InferenceClient("cvssp/audioldm-12.8k-caps", token=Settings.HF_TOKEN)
-        # AudioLDM takes a text prompt and returns bytes
-        audio_bytes = client.text_to_audio(
-            prompt, 
-            guidance_scale=2.5, 
-            num_inference_steps=10
-        )
+
+        # --- FIX: Direct API Call (Bypasses InferenceClient version issues) ---
+        API_URL = "https://api-inference.huggingface.co/models/cvssp/audioldm-12.8k-caps"
+        headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
+        payload = {"inputs": prompt}
+        
+        response = requests.post(API_URL, headers=headers, json=payload)
+        
+        if response.status_code != 200:
+            logger.error(f"Audio API Error: {response.text}")
+            return None
+            
+        audio_bytes = response.content
+        # ----------------------------------------------------------------------
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
             f.write(audio_bytes)
@@ -121,7 +128,6 @@ def analyze_videos(state: ContinuityState) -> dict:
         try:
             if attempt > 0:
                  update_job_status(job_id, "analyzing", 20, f"Retrying analysis (Attempt {attempt+1})...")
-
             file_a = client.files.upload(file=path_a)
             file_c = client.files.upload(file=path_c)
 
@@ -237,17 +243,8 @@ def generate_video(state: ContinuityState) -> dict:
     except Exception as e:
         logger.warning(f"⚠️ Veo Failed: {e}")
 
-    # --- ATTEMPT 2: SVD FALLBACK (Free) ---
+    # --- ATTEMPT 2: SVD FALLBACK (Removed) ---
     if not local_path:
-         # SVD Fallback logic omitted for brevity in user request, but I should probably keep it if it was there? 
-         # The user provided code says:
-         # if not local_path: update_job_status(job_id, "error", 0, "Video generation failed.") return {}
-         # but the previous version had SVD.
-         # User's text: "# --- ATTEMPT 2: SVD FALLBACK --- if not local_path: update_job_status(job_id, "error", 0, "Video generation failed.") return {}"
-         # This suggests the user wants to REMOVE SVD fallback or just didn't include it fully.
-         # "Please OVERWRITE Continuity/agent.py with the corrected code below."
-         # The code below puts an abrupt error if not local_path.
-         # I will stick to what the user provided, which simplifies the generator.
          update_job_status(job_id, "error", 0, "Video generation failed (Veo).")
          return {}
 
