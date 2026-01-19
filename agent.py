@@ -9,12 +9,12 @@ from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
 
 # Unified SDK for both Analyst (Gemini) and Generator (Veo)
-from google import genai 
-from google.genai import types 
+from google import genai
+from google.genai import types
 from google.cloud import storage
 
-from groq import Groq 
-from gradio_client import Client, handle_file 
+from groq import Groq
+from gradio_client import Client, handle_file
 from dotenv import load_dotenv
 
 # --- AUTH SETUP FOR HUGGING FACE ---
@@ -49,7 +49,7 @@ def download_to_temp(url):
     logger.info(f"Downloading: {url}")
     if os.path.exists(url):
         return url
-    
+
     resp = requests.get(url, stream=True)
     resp.raise_for_status()
     suffix = os.path.splitext(url.split("/")[-1])[1] or ".mp4"
@@ -61,7 +61,7 @@ def download_blob(gcs_uri, destination_file_name):
     """Downloads a blob from the bucket."""
     if not gcs_uri.startswith("gs://"):
         raise ValueError(f"Invalid GCS URI: {gcs_uri}")
-    
+
     parts = gcs_uri[5:].split("/", 1)
     bucket_name = parts[0]
     source_blob_name = parts[1]
@@ -70,20 +70,20 @@ def download_blob(gcs_uri, destination_file_name):
     blob = bucket.blob(source_blob_name)
     blob.download_to_filename(destination_file_name)
     logger.info(f"Downloaded storage object {gcs_uri} to local file {destination_file_name}.")
-    
+
 # --- NODE 1: ANALYST ---
 def analyze_videos(state: ContinuityState) -> dict:
     logger.info("--- 🧐 Analyst Node (Director) ---")
-    
+
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
-
+    
     # 1. Prepare Files
     try:
         path_a = state.get('video_a_local_path')
         if not path_a:
             path_a = download_to_temp(video_a_url)
-            
+
         path_c = state.get('video_c_local_path')
         if not path_c:
             path_c = download_to_temp(video_c_url)
@@ -138,7 +138,7 @@ def analyze_videos(state: ContinuityState) -> dict:
             else:
                 logger.error(f"⚠️ Gemini Error: {e}")
                 break
-                
+
     # 3. Fallback: Groq (Updated Model)
     if not transition_prompt:
         logger.info("Switching to Llama 3.2 (Groq) Fallback...")
@@ -164,14 +164,14 @@ def analyze_videos(state: ContinuityState) -> dict:
 # --- NODE 2: GENERATOR ---
 def generate_video(state: ContinuityState) -> dict:
     logger.info("--- 🎥 Generator Node ---")
-    
+
     prompt = state.get('veo_prompt', "")
     path_a = state.get('video_a_local_path')
     path_c = state.get('video_c_local_path')
     
     if not path_a or not path_c:
         return {"generated_video_url": "Error: Missing local video paths"}
-        
+
     # --- ATTEMPT 1: GOOGLE VEO ---
     try:
         logger.info("⚡ Initializing Google Veo (Unified SDK)...")
@@ -198,29 +198,36 @@ def generate_video(state: ContinuityState) -> dict:
             logger.info(f"Waiting for Veo operation {operation.name}...")
             while not operation.done:
                 time.sleep(10)
-                # Pass operation object, not name
                 operation = client.operations.get(operation)
                 logger.info("...still generating...")
                 
             if operation.result and operation.result.generated_videos:
                 video_result = operation.result.generated_videos[0]
                 
+                # CASE 1: URI (GCS Bucket)
                 if hasattr(video_result.video, 'uri') and video_result.video.uri:
                     gcs_uri = video_result.video.uri
                     logger.info(f"Veo output saved to GCS: {gcs_uri}")
-                    
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
                         local_path = f.name
-                    
                     download_blob(gcs_uri, local_path)
-                    logger.info(f"✅ Veo Video Downloaded: {local_path}")
+                    logger.info(f"✅ Veo Video Downloaded (from GCS): {local_path}")
                     return {"generated_video_url": local_path}
+                
+                # CASE 2: RAW BYTES (Direct Return)
+                elif hasattr(video_result.video, 'video_bytes') and video_result.video.video_bytes:
+                    logger.info("Veo returned raw bytes. Saving to local file...")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
+                        f.write(video_result.video.video_bytes)
+                        local_path = f.name
+                    logger.info(f"✅ Veo Video Saved (from Bytes): {local_path}")
+                    return {"generated_video_url": local_path}
+                    
                 else:
-                    # --- FIX: LOG FULL RESULT FOR DEBUGGING ---
-                    logger.warning(f"Veo operation completed but no URI found. Full Result: {video_result}")
+                    logger.warning(f"Veo operation completed but no URI/Bytes found. Result: {video_result}")
             else:
                 logger.warning("Veo operation completed with no result.")
-            
+                
         else:
             logger.warning("⚠️ GCP_PROJECT_ID not set. Skipping Veo.")
             
@@ -240,28 +247,38 @@ def generate_video(state: ContinuityState) -> dict:
             cap = cv2.VideoCapture(video_path)
             ret, frame = cap.read()
             cap.release()
-            if ret:
-                return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            if ret: return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             return None
-        
+
         img_start = get_frame(path_a)
-        if img_start is None:
-            raise ValueError("Could not read start frame for SVD")
+        if img_start is None: raise ValueError("Could not read start frame for SVD")
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f_start:
             img_start.save(f_start, format="PNG")
             start_path = f_start.name
             
         client = Client("multimodalart/stable-video-diffusion")
-        # --- FIX: ADDED API_NAME ---
         result = client.predict(
             handle_file(start_path),
             0.0, 0.0, 1, 25,
-            api_name="/video" 
+            fn_index=0 
         )
         logger.info(f"✅ SVD Generated: {result}")
-        # Handle tuple return if necessary
-        return {"generated_video_url": result[0] if isinstance(result, tuple) else result}
+        
+        # --- FIX: ROBUST PARSING FOR SVD ---
+        # SVD often returns ({'video': path}, metadata) or just path
+        final_path = None
+        if isinstance(result, tuple):
+            if isinstance(result[0], dict) and 'video' in result[0]:
+                final_path = result[0]['video']
+            else:
+                final_path = result[0]
+        elif isinstance(result, dict) and 'video' in result:
+            final_path = result['video']
+        else:
+            final_path = result
+            
+        return {"generated_video_url": final_path}
         
     except Exception as e:
         logger.error(f"❌ All Generators Failed. Error: {e}")
