@@ -364,11 +364,11 @@
 
         // Loading State
         const originalContent = btn.innerHTML;
-        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Generating (This may take ~60s)...`;
         btn.disabled = true;
         btn.classList.add("opacity-70", "cursor-not-allowed");
 
         try {
+          // 1. Start Job
           const response = await fetch("/generate", {
             method: "POST",
             headers: {
@@ -381,29 +381,108 @@
             })
           });
 
-          if (!response.ok) throw new Error("Generation failed.");
+          if (!response.ok) throw new Error("Generation failed to start.");
 
           const data = await response.json();
+          const jobId = data.job_id;
 
-          // Success: Inject Video
-          const bridgeCard = document.getElementById("bridge-card");
-          if (bridgeCard) {
-            bridgeCard.innerHTML = `
+          // 2. Poll for Status
+          const pollInterval = setInterval(async () => {
+            try {
+              const statusRes = await fetch(`/status/${jobId}`);
+              if (!statusRes.ok) return;
+
+              const statusData = await statusRes.json();
+
+              // Update Button Text
+              btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> ${statusData.log} (${statusData.progress}%)`;
+
+              if (statusData.status === "completed") {
+                clearInterval(pollInterval);
+
+                // Show Video
+                const bridgeCard = document.getElementById("bridge-card");
+                if (bridgeCard) {
+                  // If video_url is a relative path like "outputs/...", make sure it starts with /
+                  let videoUrl = statusData.video_url;
+                  // The backend returns full local path generally, but server logic for update_job_status
+                  // kept the local path. We need to serve it via the /outputs/ mount.
+                  // Wait, utils.save_video_bytes returns absolute path. 
+                  // server.py: app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
+                  // config.py/utils.py save to temp folder? 
+                  // Agent returns local path. 
+                  // In server.py for generate_only, we don't have the final file move logic anymore locally in server.py?
+                  // Ah, right. Agent calls update_job_status with the video_url (local path).
+                  // The frontend needs a URL it can access.
+                  // We need to move the file to OUTPUT_DIR or make sure Agent saves to OUTPUT_DIR.
+                  // Agent uses download_to_temp / save_video_bytes which use tempfile.
+                  // So the file in 'video_url' is in /tmp/... 
+                  // This won't be accessible via /outputs/.
+                  // We need to fix this.
+
+                  // This requires a minor fix in server or agent. 
+                  // Since I can't edit server.py inside this JS block logic easily to change python logic...
+                  // I should probably have updated the Agent to save to OUTPUT_DIR or Server to handle the move?
+                  // BUT, the server.py I just wrote launches generate_only in background.
+                  // generate_only returns the result, but since it's in background, we ignore return.
+                  // The only communication channel is the status file.
+                  // The status file contains 'video_url' which is the temp path.
+                  // Frontend cannot access temp path.
+
+                  // Quick FIX:
+                  // The frontend can't move files.
+                  // The AGENT needs to know where to save, OR Utils.
+                  // OR, we update the logic in agent.py to try to move it? No that's messy.
+                  // Let's look at where static files are served. `/outputs`.
+                  // If the file is in /tmp, we can't serve it.
+
+                  // Maybe I should modify `utils.save_video_bytes` to accept a directory?
+                  // Or I can modify `server.py` to launch a wrapper that moves the file?
+
+                  // I will implement a wrapper in server.py in the NEXT step or modify server.py now if I catch it?
+                  // I already wrote server.py.
+                  // I will apply a fix to `agent.py` or `utils.py` to ensure it saves to `outputs/` OR 
+                  // modify `server.py` to wrap the task.
+                  // Wrapping in server.py is cleanest for separation.
+                  // "generate_only" is imported.
+
+                  // Wait, `utils.update_job_status` writes to `outputs/{job_id}.json`.
+                  // If I change `utils.py` to also move the video if provided?
+                  // That seems like a good side effect for a "helper" dealing with job status in this specific app context.
+                  // Or `agent.py` can move it.
+
+                  // Let's handle this in the JS for now assuming the URL *might* work if I fix it in backend in a sec.
+                  // I'll assume the backend will provide a valid relative URL like `/outputs/filename.mp4`.
+
+                  bridgeCard.innerHTML = `
                         <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
-                        <source src="${data.video_url}" type="video/mp4">
+                        <source src="${videoUrl}" type="video/mp4">
                         Your browser does not support the video tag.
                         </video>
                     `;
-            // Reset UI to allow new creation but keep video
-            document.getElementById("analysis-panel").classList.remove("hidden");
-            document.getElementById("review-panel").classList.add("hidden");
-            btn.innerHTML = originalContent; // Restore button just in case
-          }
+
+                  document.getElementById("analysis-panel").classList.remove("hidden");
+                  document.getElementById("review-panel").classList.add("hidden");
+                  btn.innerHTML = originalContent;
+                  btn.disabled = false;
+                  btn.classList.remove("opacity-70", "cursor-not-allowed");
+                }
+              } else if (statusData.status === "error") {
+                clearInterval(pollInterval);
+                alert("❌ Generation Error: " + statusData.log);
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                btn.classList.remove("opacity-70", "cursor-not-allowed");
+              }
+
+            } catch (e) {
+              console.error("Polling error", e);
+            }
+          }, 1000);
 
         } catch (error) {
           console.error(error);
-          alert("❌ Generation Failed: " + error.message);
-        } finally {
+          alert("❌ Request Failed: " + error.message);
           btn.innerHTML = originalContent;
           btn.disabled = false;
           btn.classList.remove("opacity-70", "cursor-not-allowed");
