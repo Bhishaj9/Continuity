@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html class="dark" lang="en">
 
 <head>
@@ -14,9 +13,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap"
     rel="stylesheet" />
   <!-- Material Symbols -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-    rel="stylesheet" />
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
@@ -72,6 +68,12 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Footer fade for the floating button */
+    .footer-fade {
+      background: linear-gradient(to top, #191022 20%, transparent 100%);
+      pointer-events: none;
     }
 
     .connection-line {
@@ -134,8 +136,10 @@
     <div class="w-full max-w-[1400px] flex items-center justify-center gap-6 xl:gap-10">
       <!-- SCENE A: Upload State -->
       <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-        <div class="flex items-center justify-between px-1">
+        <!-- HEADER FIX A: Centered + Gap + Separator -->
+        <div class="flex items-center justify-center gap-3 px-1">
           <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Input Source</span>
+          <span class="text-gray-600">|</span>
           <span class="text-xs font-bold tracking-widest text-primary">SCENE A</span>
         </div>
         <div
@@ -174,7 +178,7 @@
         </div>
         <!-- Active Card Container -->
         <div id="bridge-card"
-          class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-neon border border-primary/30 group">
+          class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-neon border border-primary/30 group bg-black">
           <!-- Placeholder Gradient Background -->
           <div class="absolute inset-0 bg-gradient-to-br from-surface-dark to-[#0f0a16] z-0"></div>
           <!-- Abstract Visualization -->
@@ -218,8 +222,10 @@
       </div>
       <!-- SCENE C: Upload State -->
       <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-        <div class="flex items-center justify-center px-1">
+        <!-- HEADER FIX C: Centered + Gap + Separator + Order Check -->
+        <div class="flex items-center justify-center gap-3 px-1">
           <span class="text-xs font-bold tracking-widest text-primary">SCENE C</span>
+          <span class="text-gray-600">|</span>
           <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Target Source</span>
         </div>
         <div
@@ -243,6 +249,10 @@
       </div>
     </div>
   </main>
+
+  <!-- Footer Fade Mask -->
+  <div class="fixed bottom-0 left-0 w-full h-32 footer-fade z-40"></div>
+
   <!-- Floating Action Bar (Director Controls) -->
   <div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
     <!-- Analysis Panel (Step 1) -->
