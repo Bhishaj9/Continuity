@@ -39,27 +39,40 @@ class ContinuityState(TypedDict):
     video_c_local_path: Optional[str]
 
 def generate_audio(prompt: str) -> Optional[str]:
-    """Generates audio SFX using AudioLDM via Direct API Call."""
+    """Generates audio SFX using AudioLDM with a Retry Loop for Cold Starts."""
     try:
         logger.info(f"🎵 Generating Audio for: {prompt[:30]}...")
 
-        # --- FIX: Direct API Call (Bypasses InferenceClient version issues) ---
         API_URL = "https://api-inference.huggingface.co/models/cvssp/audioldm-12.8k-caps"
         headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
         payload = {"inputs": prompt}
         
-        response = requests.post(API_URL, headers=headers, json=payload)
-        
-        if response.status_code != 200:
-            logger.error(f"Audio API Error: {response.text}")
+        # --- RETRY LOOP (Handle Model Loading) ---
+        for attempt in range(5):
+            response = requests.post(API_URL, headers=headers, json=payload)
+            
+            # SUCCESS
+            if response.status_code == 200:
+                audio_bytes = response.content
+                logger.info(f"✅ Audio generated! ({len(audio_bytes)} bytes)")
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
+                    f.write(audio_bytes)
+                    return f.name
+            
+            # MODEL LOADING (503)
+            if response.status_code == 503:
+                error_data = response.json()
+                wait_time = error_data.get("estimated_time", 20)
+                logger.info(f"💤 Model is loading (Attempt {attempt+1}/5). Waiting {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+                
+            # OTHER ERRORS
+            logger.error(f"Audio API Error ({response.status_code}): {response.text}")
             return None
             
-        audio_bytes = response.content
-        # ----------------------------------------------------------------------
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
-            f.write(audio_bytes)
-            return f.name
+        logger.error("Audio generation timed out.")
+        return None
             
     except Exception as e:
         logger.error(f"Audio generation failed: {e}")
@@ -120,7 +133,7 @@ def analyze_videos(state: ContinuityState) -> dict:
 
     update_job_status(job_id, "analyzing", 20, "Director analyzing motion and lighting...")
 
-    # 2. Try Gemini 2.0 (With Retry and Wait Loop)
+    # 2. Try Gemini 2.0 (With Retry)
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
     transition_prompt = None
     retries = 3
