@@ -10,7 +10,6 @@ opencv-python-headless
 google-genai
 python-multipart
 Pillow
-groq
 numpy
 gradio
 google-generativeai

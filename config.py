@@ -9,7 +9,6 @@ class Settings:
     GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
     GCP_LOCATION = os.getenv("GCP_LOCATION", "us-central1")
     GCP_CREDENTIALS_JSON = os.getenv("GCP_CREDENTIALS_JSON")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     HF_TOKEN = os.getenv("HF_TOKEN")
     GCP_BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
 
