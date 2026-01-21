@@ -2,18 +2,12 @@ import os
 import time
 import logging
 import json
-import subprocess
 import tempfile
-import requests
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
-
 # Import unified SDK
 from google import genai
 from google.genai import types
-
-# Import other clients
-from gradio_client import Client, handle_file
 
 # Import refactored modules
 from config import Settings
@@ -37,93 +31,12 @@ class ContinuityState(TypedDict):
     video_a_local_path: Optional[str]
     video_c_local_path: Optional[str]
 
-def generate_audio(prompt: str) -> Optional[str]:
-    """Generates audio using the new Router API with fallback models."""
-    
-    # List of models to try (Small first, then Medium as backup)
-    # These URLs use the new 'router' endpoint required by Hugging Face
-    models = [
-        "https://router.huggingface.co/hf-inference/models/facebook/musicgen-small",
-        "https://router.huggingface.co/hf-inference/models/facebook/musicgen-medium"
-    ]
-    
-    headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
-    payload = {"inputs": prompt}
-
-    for i, api_url in enumerate(models):
-        try:
-            logger.info(f"🎵 Generating Audio (Attempt {i+1}) using: {api_url.split('/')[-1]}...")
-            
-            # --- RETRY LOOP (For Loading/503 Errors) ---
-            for attempt in range(5):
-                response = requests.post(api_url, headers=headers, json=payload)
-                
-                # SUCCESS (200)
-                if response.status_code == 200:
-                    audio_bytes = response.content
-                    logger.info(f"✅ Audio generated! ({len(audio_bytes)} bytes)")
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
-                        f.write(audio_bytes)
-                        return f.name
-                
-                # MODEL LOADING (503)
-                if response.status_code == 503:
-                    error_data = response.json()
-                    wait_time = error_data.get("estimated_time", 20)
-                    logger.info(f"💤 Model is loading. Waiting {wait_time}s...")
-                    time.sleep(wait_time)
-                    continue
-                
-                # 404 NOT FOUND (Model missing/gated) -> Break to try next model
-                if response.status_code == 404:
-                    logger.warning(f"⚠️ Model not found (404): {api_url}")
-                    break
-                
-                # OTHER ERRORS -> Log and retry
-                logger.error(f"Audio API Error ({response.status_code}): {response.text}")
-                time.sleep(2)
-
-        except Exception as e:
-            logger.error(f"Audio generation failed for {api_url}: {e}")
-            continue
-
-    logger.error("❌ All audio generation attempts failed.")
-    return None
-
-def merge_audio_video(video_path: str, audio_path: str) -> str:
-    """Merges video and audio using ffmpeg."""
-    if not audio_path:
-        return video_path
-        
-    try:
-        output_path = video_path.replace(".mp4", "_merged.mp4")
-        logger.info(f"🎬 Merging Audio & Video: {video_path} + {audio_path}")
-        
-        # ffmpeg command: -i video -i audio -c:v copy -c:a aac -shortest output
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", video_path,
-            "-i", audio_path,
-            "-map", "0:v", "-map", "1:a",
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-shortest",
-            output_path
-        ]
-        
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        return output_path
-    except Exception as e:
-        logger.error(f"FFmpeg Merge Failed: {e}")
-        return video_path
-
 # --- NODE 1: ANALYST ---
 def analyze_videos(state: ContinuityState) -> dict:
     logger.info("--- 🧐 Analyst Node (Director) ---")
     job_id = state.get("job_id")
-    
-    update_job_status(job_id, "analyzing", 10, "Director starting analysis...")
 
+    update_job_status(job_id, "analyzing", 10, "Director starting analysis...")
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
     style = state.get('style', 'Cinematic')
@@ -142,9 +55,9 @@ def analyze_videos(state: ContinuityState) -> dict:
         logger.error(error_msg)
         update_job_status(job_id, "error", 0, error_msg)
         return {"scene_analysis": "Error downloading", "veo_prompt": "Smooth cinematic transition"}
-
+    
     update_job_status(job_id, "analyzing", 20, "Director analyzing motion and lighting...")
-
+    
     # 2. Try Gemini 2.0 (With Retry)
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
     transition_prompt = None
@@ -153,12 +66,16 @@ def analyze_videos(state: ContinuityState) -> dict:
         try:
             if attempt > 0:
                  update_job_status(job_id, "analyzing", 20, f"Retrying analysis (Attempt {attempt+1})...")
-
+            
             file_a = client.files.upload(file=path_a)
             file_c = client.files.upload(file=path_c)
-
-            while file_a.state.name == "PROCESSING": time.sleep(1); file_a = client.files.get(name=file_a.name)
-            while file_c.state.name == "PROCESSING": time.sleep(1); file_c = client.files.get(name=file_c.name)
+            
+            while file_a.state.name == "PROCESSING":
+                time.sleep(1)
+                file_a = client.files.get(name=file_a.name)
+            while file_c.state.name == "PROCESSING":
+                time.sleep(1)
+                file_c = client.files.get(name=file_c.name)
             
             prompt_text = f"""
             You are a film director. 
@@ -181,78 +98,74 @@ def analyze_videos(state: ContinuityState) -> dict:
             break # Success
         except Exception as e:
             time.sleep(2)
-
+            
     if not transition_prompt:
         transition_prompt = "Smooth cinematic transition with motion blur matching the scenes."
             
     update_job_status(job_id, "generating", 40, "Director prompt ready. Starting generation...")
-    
-    return {
-        "scene_analysis": transition_prompt, 
-        "veo_prompt": transition_prompt,
-        "video_a_local_path": path_a,
-        "video_c_local_path": path_c
-    }
+    return { "scene_analysis": transition_prompt, "veo_prompt": transition_prompt, "video_a_local_path": path_a, "video_c_local_path": path_c }
 
 # --- NODE 2: GENERATOR ---
 def generate_video(state: ContinuityState) -> dict:
     logger.info("--- 🎥 Generator Node ---")
     job_id = state.get("job_id")
     prompt = state.get('veo_prompt', "")
-    path_a = state.get('video_a_local_path')
-    path_c = state.get('video_c_local_path')
-    
+
     update_job_status(job_id, "generating", 50, "Veo initializing...")
     
-    if not path_a or not path_c:
-        update_job_status(job_id, "error", 0, "Error: Missing local video paths")
+    # Check GCP Project ID
+    if not Settings.GCP_PROJECT_ID:
+        error_msg = "GCP_PROJECT_ID not set. Veo requires Vertex AI."
+        logger.error(error_msg)
+        update_job_status(job_id, "error", 0, error_msg)
         return {}
 
     local_path = None
-
-    # --- ATTEMPT 1: GOOGLE VEO ---
+    # --- ATTEMPT: GOOGLE VEO 3.1 (With Native Audio) ---
     try:
-        logger.info("⚡ Initializing Google Veo (Unified SDK)...")
-        if Settings.GCP_PROJECT_ID:
-            client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
-            
-            logger.info(f"Generating with Veo... Prompt: {prompt[:30]}...")
-            update_job_status(job_id, "generating", 60, "Veo generating video (this takes ~60s)...")
-            
-            operation = client.models.generate_videos(
-                model='veo-2.0-generate-001',
-                prompt=prompt,
-                config=types.GenerateVideosConfig(number_of_videos=1)
+        logger.info("⚡ Initializing Google Veo 3.1 (Unified SDK)...")
+        client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
+        
+        logger.info(f"Generating with Veo 3.1... Prompt: {prompt[:30]}...")
+        update_job_status(job_id, "generating", 60, "Veo 3.1 generating video+audio (this takes ~60s)...")
+        
+        # Veo 3.1 supports native audio generation
+        operation = client.models.generate_videos(
+            model='veo-3.1-generate-preview',
+            prompt=prompt,
+            config=types.GenerateVideosConfig(
+                number_of_videos=1,
             )
+        )
+        
+        while not operation.done:
+            time.sleep(5)
+            operation = client.operations.get(operation)
             
-            while not operation.done:
-                time.sleep(5)
-                operation = client.operations.get(operation)
-                
-            if operation.result and operation.result.generated_videos:
-                video_result = operation.result.generated_videos[0]
-                if hasattr(video_result.video, 'uri') and video_result.video.uri:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f: local_path = f.name
-                    download_blob(video_result.video.uri, local_path)
-                elif hasattr(video_result.video, 'video_bytes') and video_result.video.video_bytes:
-                    local_path = save_video_bytes(video_result.video.video_bytes)
-            else:
-                logger.warning("Veo operation completed with no result.")
+        if operation.result and operation.result.generated_videos:
+            video_result = operation.result.generated_videos[0]
+            
+            # Handle URI (GCS)
+            if hasattr(video_result.video, 'uri') and video_result.video.uri:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
+                    local_path = f.name
+                download_blob(video_result.video.uri, local_path)
+            # Handle Bytes
+            elif hasattr(video_result.video, 'video_bytes') and video_result.video.video_bytes:
+                local_path = save_video_bytes(video_result.video.video_bytes)
+        else:
+            logger.warning("Veo operation completed with no result.")
+            
     except Exception as e:
         logger.warning(f"⚠️ Veo Failed: {e}")
-
+        update_job_status(job_id, "error", 0, f"Video generation failed: {e}")
+        return {}
+        
     if not local_path:
-         update_job_status(job_id, "error", 0, "Video generation failed (Veo).")
+         update_job_status(job_id, "error", 0, "Video generation failed (Veo 3.1).")
          return {}
-
-    # --- AUDIO & MERGE ---
-    update_job_status(job_id, "generating", 90, "Generating audio SFX...")
-    audio_path = generate_audio(prompt)
-    
-    if audio_path:
-        update_job_status(job_id, "generating", 95, "Merging audio and video...")
-        local_path = merge_audio_video(local_path, audio_path)
-    
+         
+    # Audio is now native, so we skip separate audio generation!
     update_job_status(job_id, "completed", 100, "Done!", video_url=local_path)
     return {"generated_video_url": local_path}
 
@@ -260,22 +173,40 @@ def generate_video(state: ContinuityState) -> dict:
 workflow = StateGraph(ContinuityState)
 workflow.add_node("analyst", analyze_videos)
 workflow.add_node("generator", generate_video)
+
 workflow.set_entry_point("analyst")
 workflow.add_edge("analyst", "generator")
 workflow.add_edge("generator", END)
+
 app = workflow.compile()
 
 # --- SERVER COMPATIBILITY WRAPPERS ---
 def analyze_only(state_or_path_a, path_c=None, job_id=None, style="Cinematic"):
     if isinstance(state_or_path_a, str):
-        state = {"job_id": job_id, "video_a_url": "local", "video_c_url": "local", "video_a_local_path": state_or_path_a, "video_c_local_path": path_c, "style": style}
+        state = {
+            "job_id": job_id,
+            "video_a_url": "local",
+            "video_c_url": "local",
+            "video_a_local_path": state_or_path_a, 
+            "video_c_local_path": path_c,
+            "style": style
+        }
     else:
         state = state_or_path_a
         state["job_id"] = job_id
         state["style"] = style
+        
     result = analyze_videos(state)
     return {"prompt": result.get("scene_analysis"), "status": "success"}
 
 def generate_only(prompt, path_a, path_c, job_id=None, style="Cinematic"):
-    state = {"job_id": job_id, "video_a_url": "local", "video_c_url": "local", "video_a_local_path": path_a, "video_c_local_path": path_c, "veo_prompt": prompt, "style": style}
+    state = {
+        "job_id": job_id,
+        "video_a_url": "local",
+        "video_c_url": "local",
+        "video_a_local_path": path_a,
+        "video_c_local_path": path_c,
+        "veo_prompt": prompt,
+        "style": style
+    }
     return generate_video(state)
