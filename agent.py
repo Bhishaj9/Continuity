@@ -109,8 +109,12 @@ def analyze_videos(state: ContinuityState) -> dict:
 def generate_video(state: ContinuityState) -> dict:
     logger.info("--- 🎥 Generator Node ---")
     job_id = state.get("job_id")
-    prompt = state.get('veo_prompt', "")
+    visual_prompt = state.get('veo_prompt', "")
+    audio_context = state.get('audio_prompt', "Realistic ambient sound")
 
+    # Merge Prompts for Veo 3.1
+    # Veo 3.1 understands audio instructions within the main prompt
+    full_prompt = f"{visual_prompt} Soundtrack: {audio_context}"
     update_job_status(job_id, "generating", 50, "Veo initializing...")
     
     # Check GCP Project ID
@@ -126,13 +130,13 @@ def generate_video(state: ContinuityState) -> dict:
         logger.info("⚡ Initializing Google Veo 3.1 (Unified SDK)...")
         client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
         
-        logger.info(f"Generating with Veo 3.1... Prompt: {prompt[:30]}...")
-        update_job_status(job_id, "generating", 60, "Veo 3.1 generating video+audio (this takes ~60s)...")
+        logger.info(f"Generating with Veo 3.1... Prompt: {full_prompt[:50]}...")
+        update_job_status(job_id, "generating", 60, f"Veo 3.1 generating with audio style: '{audio_context}'...")
         
         # Veo 3.1 supports native audio generation
         operation = client.models.generate_videos(
             model='veo-3.1-generate-preview',
-            prompt=prompt,
+            prompt=full_prompt,
             config=types.GenerateVideosConfig(
                 number_of_videos=1,
             )
@@ -199,7 +203,7 @@ def analyze_only(state_or_path_a, path_c=None, job_id=None, style="Cinematic"):
     result = analyze_videos(state)
     return {"prompt": result.get("scene_analysis"), "status": "success"}
 
-def generate_only(prompt, path_a, path_c, job_id=None, style="Cinematic"):
+def generate_only(prompt, path_a, path_c, job_id=None, style="Cinematic", audio_prompt="Cinematic ambient sound"):
     state = {
         "job_id": job_id,
         "video_a_url": "local",
@@ -207,6 +211,7 @@ def generate_only(prompt, path_a, path_c, job_id=None, style="Cinematic"):
         "video_a_local_path": path_a,
         "video_c_local_path": path_c,
         "veo_prompt": prompt,
-        "style": style
+        "style": style,
+        "audio_prompt": audio_prompt # Pass the new parameter to state
     }
     return generate_video(state)

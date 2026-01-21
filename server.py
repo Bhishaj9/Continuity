@@ -33,7 +33,6 @@ def analyze_endpoint(
     video_a: UploadFile = File(...),
     video_c: UploadFile = File(...)
 ):
-    # Changed to 'def' to run in threadpool (prevent blocking)
     try:
         request_id = str(uuid.uuid4())
         ext_a = os.path.splitext(video_a.filename)[1] or ".mp4"
@@ -41,15 +40,14 @@ def analyze_endpoint(
 
         path_a = os.path.join(OUTPUT_DIR, f"{request_id}_a{ext_a}")
         path_c = os.path.join(OUTPUT_DIR, f"{request_id}_c{ext_c}")
-    
+
         with open(path_a, "wb") as buffer:
             shutil.copyfileobj(video_a.file, buffer)
         with open(path_c, "wb") as buffer:
             shutil.copyfileobj(video_c.file, buffer)
         
-        # This is blocking, so 'def' is required
         result = analyze_only(os.path.abspath(path_a), os.path.abspath(path_c), job_id=request_id)
-    
+        
         if result.get("status") == "error":
              raise HTTPException(status_code=500, detail=result.get("detail"))
          
@@ -67,23 +65,22 @@ def generate_endpoint(
     background_tasks: BackgroundTasks,
     prompt: str = Body(...),
     style: str = Body("Cinematic"),
+    audio_prompt: str = Body("Cinematic ambient sound"), # <--- NEW: Capture Audio Mood
     video_a_path: str = Body(...),
     video_c_path: str = Body(...)
 ):
-    # Changed to 'def' for safety
     try:
         if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
-             raise HTTPException(status_code=400, detail="Video files not found on server.")
+            raise HTTPException(status_code=400, detail="Video files not found on server.")
 
         job_id = str(uuid.uuid4())
         
-        # Initialize job status
         status_file = os.path.join(OUTPUT_DIR, f"{job_id}.json")
         with open(status_file, "w") as f:
             json.dump({"status": "queued", "progress": 0, "log": "Job queued..."}, f)
-
-        # Add to background tasks
-        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style)
+            
+        # Pass audio_prompt to the agent function
+        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt)
         
         return {"job_id": job_id}
         
@@ -96,7 +93,7 @@ def get_status(job_id: str):
     file_path = os.path.join(OUTPUT_DIR, f"{job_id}.json")
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Job not found")
-        
+
     try:
         with open(file_path, "r") as f:
             data = json.load(f)
@@ -106,7 +103,6 @@ def get_status(job_id: str):
 
 @app.get("/history")
 def get_history():
-    """Returns list of past generated videos from GCS."""
     return get_history_from_gcs()
 
 if __name__ == "__main__":

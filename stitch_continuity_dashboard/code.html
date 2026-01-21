@@ -1,474 +1,419 @@
 <!DOCTYPE html>
 <html class="dark" lang="en">
-
 <head>
-  <meta charset="utf-8" />
-  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>Continuity Dashboard</title>
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com" rel="preconnect" />
-  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap"
-    rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&amp;display=swap"
-    rel="stylesheet" />
-  <!-- Material Symbols -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-    rel="stylesheet" />
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script id="tailwind-config">
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            "primary": "#7f0df2",
-            "background-light": "#f7f5f8",
-            "background-dark": "#191022",
-            "surface-dark": "#2a1d35",
-            "border-dark": "#4d3168",
-          },
-          fontFamily: {
-            "display": ["Space Grotesk", "sans-serif"],
-            "body": ["Noto Sans", "sans-serif"],
-          },
-          borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
-          boxShadow: {
-            "neon": "0 0 20px rgba(127, 13, 242, 0.4)",
-            "neon-strong": "0 0 35px rgba(127, 13, 242, 0.6)",
-          }
-        },
-      },
-    }
-  </script>
-  <style>
-    /* Custom scrollbar for dark theme */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #191022;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #4d3168;
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #7f0df2;
-    }
-
-    .glass-panel {
-      background: rgba(25, 16, 34, 0.6);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    /* Footer fade for the floating button */
-    .footer-fade {
-      background: linear-gradient(to top, #191022 20%, transparent 100%);
-      pointer-events: none;
-    }
-
-    .connection-line {
-      height: 2px;
-      flex-grow: 1;
-      background: linear-gradient(90deg, #4d3168 0%, #7f0df2 50%, #4d3168 100%);
-      opacity: 0.5;
-      position: relative;
-    }
-
-    .connection-line::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 6px;
-      height: 6px;
-      background: #7f0df2;
-      border-radius: 50%;
-      box-shadow: 0 0 10px #7f0df2;
-    }
-  </style>
-</head>
-
-<body
-  class="relative flex h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display overflow-hidden text-white selection:bg-primary selection:text-white">
-  <!-- Background Ambient Glows -->
-  <div class="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
-    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
-  </div>
-  <!-- Header -->
-  <header
-    class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-white/5 glass-panel px-8 py-4">
-    <div class="flex items-center gap-4 text-white">
-      <div class="size-8 flex items-center justify-center text-primary">
-        <span class="material-symbols-outlined text-3xl">emergency_recording</span>
-      </div>
-      <h2
-        class="text-white text-xl font-bold leading-tight tracking-[-0.015em] bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-        Continuity <span class="text-xs font-normal text-gray-400 ml-2 opacity-60 tracking-widest uppercase">The Missing
-          Link</span>
-      </h2>
-    </div>
-    <div class="flex gap-3">
-      <button
-        class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-dark hover:bg-primary/20 transition-colors border border-white/5 text-white">
-        <span class="material-symbols-outlined text-[20px]">settings</span>
-      </button>
-      <button
-        class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-dark hover:bg-primary/20 transition-colors border border-white/5 text-white">
-        <span class="material-symbols-outlined text-[20px]">account_circle</span>
-      </button>
-    </div>
-  </header>
-  <!-- Main Workspace -->
-  <main class="relative z-10 flex flex-1 flex-col items-center justify-center w-full px-8 pt-20 pb-28">
-    <!-- Timeline Container -->
-    <div class="w-full max-w-[1400px] flex items-center justify-center gap-6 xl:gap-10">
-      <!-- SCENE A: Upload State -->
-      <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-        <!-- HEADER FIX A: Centered + Gap + Separator -->
-        <div class="flex items-center justify-center gap-3 px-1">
-          <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Input Source</span>
-          <span class="text-gray-600">|</span>
-          <span class="text-xs font-bold tracking-widest text-primary">SCENE A</span>
-        </div>
-        <div
-          class="relative flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border-dark bg-surface-dark/30 hover:bg-surface-dark/50 hover:border-primary/50 transition-all duration-300 px-6 py-12 h-[360px]">
-          <div
-            class="size-16 rounded-full bg-surface-dark flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
-            <span class="material-symbols-outlined text-3xl text-gray-300 group-hover:text-white">video_file</span>
-          </div>
-          <div class="flex flex-col items-center gap-2 text-center">
-            <p class="text-white text-lg font-bold">Start Scene</p>
-            <p class="text-gray-400 text-sm max-w-[200px]">Drag &amp; drop your starting video clip here</p>
-          </div>
-          <input type="file" id="video-upload-a" accept="video/*,image/*" class="hidden"
-            onchange="handleFileSelect(this, 'label-a')">
-          <button onclick="document.getElementById('video-upload-a').click()"
-            class="mt-2 flex items-center justify-center rounded-lg h-9 px-4 bg-surface-dark hover:bg-primary hover:text-white border border-white/10 transition-all text-sm font-bold tracking-wide text-gray-200 shadow-lg">
-            <span class="material-symbols-outlined text-[18px] mr-2">upload</span>
-            <span id="label-a">Select File</span>
-          </button>
-        </div>
-      </div>
-      <!-- Connector Left -->
-      <div class="hidden md:flex flex-col items-center justify-center w-16 xl:w-24 opacity-40">
-        <div class="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent relative">
-          <div class="absolute right-0 -top-1.5 text-primary animate-pulse">
-            <span class="material-symbols-outlined text-lg">chevron_right</span>
-          </div>
-        </div>
-      </div>
-      <!-- THE BRIDGE: AI Generation Core -->
-      <div class="flex flex-col gap-4 flex-[1.2] max-w-[480px] relative z-20">
-        <div class="flex items-center justify-center px-1">
-          <span
-            class="text-xs font-bold tracking-[0.2em] text-primary drop-shadow-[0_0_8px_rgba(127,13,242,0.8)] uppercase animate-pulse">The
-            Bridge</span>
-        </div>
-        <!-- Active Card Container -->
-        <div id="bridge-card"
-          class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-neon border border-primary/30 group bg-black">
-          <!-- Placeholder Gradient Background -->
-          <div class="absolute inset-0 bg-gradient-to-br from-surface-dark to-[#0f0a16] z-0"></div>
-          <!-- Abstract Visualization -->
-          <div
-            class="absolute inset-0 opacity-40 mix-blend-overlay bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&amp;w=1000&amp;auto=format&amp;fit=crop')] bg-cover bg-center"
-            data-alt="Abstract digital waves representing AI processing"></div>
-          <!-- Glowing Core Animation (CSS Only representation) -->
-          <div class="absolute inset-0 flex items-center justify-center">
-            <div class="relative size-32">
-              <div class="absolute inset-0 rounded-full border-2 border-primary/20 animate-[spin_4s_linear_infinite]">
-              </div>
-              <div
-                class="absolute inset-2 rounded-full border-2 border-t-primary border-r-transparent border-b-primary/50 border-l-transparent animate-[spin_3s_linear_infinite_reverse]">
-              </div>
-              <div class="absolute inset-0 flex items-center justify-center">
-                <span
-                  class="material-symbols-outlined text-4xl text-primary drop-shadow-[0_0_10px_rgba(127,13,242,1)]">auto_awesome</span>
-              </div>
-            </div>
-          </div>
-          <!-- Content Overlay -->
-          <div
-            class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-end justify-between">
-            <div class="flex flex-col gap-1">
-              <p class="text-white text-xl font-bold leading-tight">AI Transition</p>
-              <div class="flex items-center gap-2">
-                <div class="size-2 rounded-full bg-yellow-500 animate-pulse"></div>
-                <p class="text-gray-300 text-xs font-medium uppercase tracking-wide">Waiting for inputs...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Connector Right -->
-      <div class="hidden md:flex flex-col items-center justify-center w-16 xl:w-24 opacity-40">
-        <div class="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent relative">
-          <div class="absolute right-0 -top-1.5 text-primary animate-pulse">
-            <span class="material-symbols-outlined text-lg">chevron_right</span>
-          </div>
-        </div>
-      </div>
-      <!-- SCENE C: Upload State -->
-      <div class="flex flex-col gap-4 flex-1 max-w-[320px] group">
-        <!-- HEADER FIX C: Centered + Gap + Separator + Order Check -->
-        <div class="flex items-center justify-center gap-3 px-1">
-          <span class="text-xs font-bold tracking-widest text-primary">SCENE C</span>
-          <span class="text-gray-600">|</span>
-          <span class="text-xs font-bold tracking-widest text-gray-400 uppercase">Target Source</span>
-        </div>
-        <div
-          class="relative flex flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed border-border-dark bg-surface-dark/30 hover:bg-surface-dark/50 hover:border-primary/50 transition-all duration-300 px-6 py-12 h-[360px]">
-          <div
-            class="size-16 rounded-full bg-surface-dark flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
-            <span class="material-symbols-outlined text-3xl text-gray-300 group-hover:text-white">movie_edit</span>
-          </div>
-          <div class="flex flex-col items-center gap-2 text-center">
-            <p class="text-white text-lg font-bold">End Scene</p>
-            <p class="text-gray-400 text-sm max-w-[200px]">Drag &amp; drop your target video clip here</p>
-          </div>
-          <input type="file" id="video-upload-c" accept="video/*,image/*" class="hidden"
-            onchange="handleFileSelect(this, 'label-c')">
-          <button onclick="document.getElementById('video-upload-c').click()"
-            class="mt-2 flex items-center justify-center rounded-lg h-9 px-4 bg-surface-dark hover:bg-primary hover:text-white border border-white/10 transition-all text-sm font-bold tracking-wide text-gray-200 shadow-lg">
-            <span class="material-symbols-outlined text-[18px] mr-2">upload</span>
-            <span id="label-c">Select File</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Footer Fade Mask -->
-  <div class="fixed bottom-0 left-0 w-full h-32 footer-fade z-40"></div>
-
-  <!-- Floating Action Bar (Director Controls) -->
-  <div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
-    <!-- Analysis Panel (Step 1) -->
-    <div id="analysis-panel" class="glass-panel rounded-full p-2 pl-6 flex items-center justify-center shadow-neon">
-      <button id="analyze-btn"
-        class="flex items-center gap-2 bg-primary hover:bg-[#6b0bc9] text-white px-8 py-3 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(127,13,242,0.4)] hover:shadow-[0_0_25px_rgba(127,13,242,0.6)] whitespace-nowrap">
-        <span class="material-symbols-outlined text-[20px]">analytics</span>
-        Upload & Analyze Scenes
-      </button>
-    </div>
-
-    <!-- Review Panel (Step 2 - Hidden Initially) -->
-    <div id="review-panel" class="hidden glass-panel rounded-2xl p-4 flex flex-col gap-4 shadow-neon w-full">
-      <div class="flex items-center justify-between pb-2 border-b border-white/10">
-        <h3 class="text-white font-display font-bold">🎬 Director's Cut: Review Prompt</h3>
-        <button onclick="resetUI()"
-          class="text-gray-400 hover:text-white text-xs uppercase tracking-widest">Reset</button>
-      </div>
-      <textarea id="prompt-box" rows="3"
-        class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-        placeholder="AI generated transition prompt will appear here..."></textarea>
-
-      <div class="flex flex-col gap-2">
-        <label for="style-select" class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Creative
-          Style</label>
-        <select id="style-select"
-          class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none">
-          <option value="Cinematic">Cinematic (Default)</option>
-          <option value="Anime">Anime</option>
-          <option value="Cyberpunk">Cyberpunk</option>
-          <option value="VHS Glitch">VHS Glitch</option>
-          <option value="Claymation">Claymation</option>
-          <option value="Noir">Noir</option>
-        </select>
-      </div>
-
-      <button id="generate-btn"
-        class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-[#6b0bc9] hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold text-lg transition-all shadow-lg">
-        <span class="material-symbols-outlined text-[24px]">movie_filter</span>
-        ACTION! (Generate Video)
-      </button>
-    </div>
-  </div>
-
-  <script>
-    // State
-    let currentVideoAPath = "";
-    let currentVideoCPath = "";
-
-    // UI Helper: Update filename text when file is selected
-    function handleFileSelect(input, labelId) {
-      if (input.files && input.files[0]) {
-        const label = document.getElementById(labelId);
-        label.innerText = input.files[0].name;
-        label.classList.add("text-primary"); // Turn purple to indicate success
-      }
-    }
-
-    function resetUI() {
-      document.getElementById("analysis-panel").classList.remove("hidden");
-      document.getElementById("review-panel").classList.add("hidden");
-      document.getElementById("prompt-box").value = "";
-      currentVideoAPath = "";
-      currentVideoCPath = "";
-    }
-
-    // Step 1: Analyze
-    const analyzeBtn = document.getElementById("analyze-btn");
-    if (analyzeBtn) {
-      analyzeBtn.addEventListener("click", async () => {
-        const fileA = document.getElementById("video-upload-a").files[0];
-        const fileC = document.getElementById("video-upload-c").files[0];
-        const btn = document.getElementById("analyze-btn");
-
-        // 1. Validation
-        if (!fileA || !fileC) {
-          alert("⚠️ Action Required: Please upload both Scene A and Scene C videos.");
-          return;
-        }
-
-        // 2. Loading State
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Analyzing Scenes...`;
-        btn.disabled = true;
-        btn.classList.add("opacity-70", "cursor-not-allowed");
-
-        const formData = new FormData();
-        formData.append("video_a", fileA);
-        formData.append("video_c", fileC);
-
-        try {
-          // 3. Send to Server
-          const response = await fetch("/analyze", {
-            method: "POST",
-            body: formData
-          });
-
-          if (!response.ok) throw new Error("Analysis failed.");
-
-          const data = await response.json();
-
-          // 4. Success: Show Review Panel
-          document.getElementById("prompt-box").value = data.prompt;
-          currentVideoAPath = data.video_a_path;
-          currentVideoCPath = data.video_c_path;
-
-          document.getElementById("analysis-panel").classList.add("hidden");
-          document.getElementById("review-panel").classList.remove("hidden");
-
-        } catch (error) {
-          console.error(error);
-          alert("❌ Analysis Failed: " + error.message);
-        } finally {
-          btn.innerHTML = originalContent;
-          btn.disabled = false;
-          btn.classList.remove("opacity-70", "cursor-not-allowed");
-        }
-      });
-    }
-
-    // Step 2: Generate
-    const generateBtn = document.getElementById("generate-btn");
-    if (generateBtn) {
-      generateBtn.addEventListener("click", async () => {
-        const prompt = document.getElementById("prompt-box").value;
-        const style = document.getElementById("style-select").value;
-        const btn = document.getElementById("generate-btn");
-
-        if (!currentVideoAPath || !currentVideoCPath) {
-          alert("Session lost. Please re-upload videos.");
-          resetUI();
-          return;
-        }
-
-        // Loading State
-        const originalContent = btn.innerHTML;
-        btn.disabled = true;
-        btn.classList.add("opacity-70", "cursor-not-allowed");
-
-        try {
-          // 1. Start Job
-          const response = await fetch("/generate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              prompt: prompt,
-              style: style,
-              video_a_path: currentVideoAPath,
-              video_c_path: currentVideoCPath
-            })
-          });
-
-          if (!response.ok) throw new Error("Generation failed to start.");
-
-          const data = await response.json();
-          const jobId = data.job_id;
-
-          // 2. Poll for Status
-          const pollInterval = setInterval(async () => {
-            try {
-              // ADDED TIMESTAMP TO PREVENT CACHING
-              const statusRes = await fetch(`/status/${jobId}?t=${Date.now()}`);
-              if (!statusRes.ok) return;
-
-              const statusData = await statusRes.json();
-
-              // Update Button Text
-              btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> ${statusData.log} (${statusData.progress}%)`;
-
-              if (statusData.status === "completed") {
-                clearInterval(pollInterval);
-
-                // Show Video
-                const bridgeCard = document.getElementById("bridge-card");
-                if (bridgeCard) {
-                  if (statusData.video_url) {
-                    bridgeCard.innerHTML = `
-                        <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
-                        <source src="${statusData.video_url}" type="video/mp4">
-                        Your browser does not support the video tag.
-                        </video>
-                       `;
-                    document.getElementById("analysis-panel").classList.remove("hidden");
-                    document.getElementById("review-panel").classList.add("hidden");
-                  } else {
-                    alert("Video generated but URL missing.");
-                  }
-                  btn.innerHTML = originalContent;
-                  btn.disabled = false;
-                  btn.classList.remove("opacity-70", "cursor-not-allowed");
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuity</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6b0bc9', // Deep Purple
+                        secondary: '#10b981', // Emerald
+                        background: '#0d0612', // Very Dark Purple/Black
+                        surface: '#1c1326', // Dark Purple Surface
+                        'surface-dark': '#130a1a',
+                        accent: '#d946ef', // Fuchsia
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'neon': '0 0 20px rgba(107, 11, 201, 0.3)',
+                        'glow': '0 0 15px rgba(217, 70, 239, 0.4)',
+                    }
                 }
-              } else if (statusData.status === "error") {
-                clearInterval(pollInterval);
-                alert("❌ Generation Error: " + statusData.log);
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-                btn.classList.remove("opacity-70", "cursor-not-allowed");
-              }
-
-            } catch (e) {
-              console.error("Polling error", e);
             }
-          }, 1000);
-
-        } catch (error) {
-          console.error(error);
-          alert("❌ Request Failed: " + error.message);
-          btn.innerHTML = originalContent;
-          btn.disabled = false;
-          btn.classList.remove("opacity-70", "cursor-not-allowed");
         }
-      });
-    }
-  </script>
-</body>
+    </script>
+    <style>
+        body {
+            background-color: #0d0612;
+            background-image: radial-gradient(circle at 15% 50%, rgba(107, 11, 201, 0.15), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.1), transparent 25%);
+            color: #e2e8f0;
+        }
+        
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #191022;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #4d3168;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #7f0df2;
+        }
+        .glass-panel {
+          background: rgba(25, 16, 34, 0.6);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        /* Footer fade for the floating button */
+        .footer-fade {
+          background: linear-gradient(to top, #191022 20%, transparent 100%);
+          pointer-events: none;
+        }
+        .connection-line {
+          height: 2px;
+          flex-grow: 1;
+          background: linear-gradient(90deg, #4d3168 0%, #7f0df2 50%, #4d3168 100%);
+          opacity: 0.5;
+          position: relative;
+        }
+        .connection-line::after {
+          content: '';
+          position: absolute;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 6px;
+          height: 6px;
+          background: #7f0df2;
+          border-radius: 50%;
+          box-shadow: 0 0 10px #7f0df2;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
 
+    <!-- Header -->
+    <header class="h-16 border-b border-white/5 bg-surface/50 backdrop-blur-md flex items-center justify-between px-6 z-20 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
+                <span class="material-symbols-outlined text-white text-md">all_inclusive</span>
+            </div>
+            <h1 class="text-xl font-display font-bold tracking-tight text-white">Continuity</h1>
+        </div>
+        
+        <div class="flex items-center gap-4">
+             <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span class="text-xs font-medium text-gray-300">System Online</span>
+            </div>
+             <a href="https://github.com/Bhishaj9/Continuity" target="_blank" class="p-2 text-gray-400 hover:text-white transition-colors">
+                <svg viewBox="0 0 24 24" class="w-5 h-5 fill-current" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path></svg>
+             </a>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Panel: Scene Inputs (Scrollable) -->
+        <div class="w-1/3 min-w-[320px] max-w-[400px] border-r border-white/5 bg-surface/30 flex flex-col h-full">
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 pb-32">
+                <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Scene Setup</h2>
+                
+                <!-- Scene A Upload -->
+                <div class="mb-8 group">
+                    <div class="flex items-center justify-between mb-2">
+                         <label class="text-white font-medium text-sm">Scene A (Start)</label>
+                         <span class="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">Input</span>
+                    </div>
+                    <div class="relative w-full aspect-video rounded-xl bg-surface-dark border-2 border-dashed border-white/10 group-hover:border-primary/50 transition-colors overflow-hidden flex flex-col items-center justify-center cursor-pointer hover:bg-white/5" onclick="document.getElementById('video-upload-a').click()">
+                        <span class="material-symbols-outlined text-4xl text-gray-600 mb-2 group-hover:text-primary transition-colors">movie</span>
+                         <span id="label-a" class="text-xs text-gray-500 font-medium">Click to Upload Video A</span>
+                         <input type="file" id="video-upload-a" class="hidden" accept="video/*" onchange="handleFileSelect(this, 'label-a')">
+                    </div>
+                </div>
+
+                <!-- Connection Arrow -->
+                <div class="flex items-center justify-center mb-8 opacity-50">
+                    <div class="h-12 w-[1px] bg-gradient-to-b from-transparent via-primary to-transparent"></div>
+                </div>
+
+                <!-- Scene C Upload -->
+                 <div class="mb-4 group">
+                    <div class="flex items-center justify-between mb-2">
+                         <label class="text-white font-medium text-sm">Scene C (End)</label>
+                         <span class="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">Input</span>
+                    </div>
+                    <div class="relative w-full aspect-video rounded-xl bg-surface-dark border-2 border-dashed border-white/10 group-hover:border-primary/50 transition-colors overflow-hidden flex flex-col items-center justify-center cursor-pointer hover:bg-white/5" onclick="document.getElementById('video-upload-c').click()">
+                         <span class="material-symbols-outlined text-4xl text-gray-600 mb-2 group-hover:text-primary transition-colors">movie</span>
+                         <span id="label-c" class="text-xs text-gray-500 font-medium">Click to Upload Video C</span>
+                         <input type="file" id="video-upload-c" class="hidden" accept="video/*" onchange="handleFileSelect(this, 'label-c')">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Action Area (Fixed) -->
+            <div class="p-6 border-t border-white/5 bg-surface/50 backdrop-blur-md absolute bottom-0 left-0 w-full z-10">
+                 <!-- 1. Analyze Panel -->
+                 <div id="analysis-panel" class="glass-panel rounded-full p-2 pl-6 flex items-center justify-center shadow-neon">
+                    <button id="analyze-btn" 
+                        class="flex items-center gap-2 bg-primary hover:bg-[#6b0bc9] text-white px-8 py-3 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(127,13,242,0.4)] hover:shadow-[0_0_25px_rgba(127,13,242,0.6)] whitespace-nowrap">
+                        <span class="material-symbols-outlined text-[20px]">analytics</span>
+                        Upload & Analyze Scenes
+                    </button>
+                 </div>
+                 
+                 <!-- 2. Review Panel (Hidden Initially) -->
+                 <div id="review-panel" class="hidden glass-panel rounded-2xl p-4 flex flex-col gap-4 shadow-neon w-full">
+                     <div class="flex items-center justify-between pb-2 border-b border-white/10">
+                         <h3 class="text-white font-display font-bold">🎬 Director's Cut: Review Prompt</h3>
+                         <button onclick="resetUI()" class="text-gray-400 hover:text-white text-xs uppercase tracking-widest">Reset</button>
+                     </div>
+                     
+                     <textarea id="prompt-box" rows="3" 
+                        class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        placeholder="AI generated transition prompt will appear here..."></textarea>
+                     
+                     <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                             <label for="style-select" class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Visual Style</label>
+                             <select id="style-select" class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+                                 <option value="Cinematic">Cinematic (Default)</option>
+                                 <option value="Anime">Anime</option>
+                                 <option value="Cyberpunk">Cyberpunk</option>
+                                 <option value="VHS Glitch">VHS Glitch</option>
+                                 <option value="Claymation">Claymation</option>
+                                 <option value="Noir">Noir</option>
+                             </select>
+                        </div>
+                        
+                        <div class="flex flex-col gap-2">
+                            <label for="audio-input" class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Audio Mood</label>
+                            <input id="audio-input" type="text"
+                              class="w-full bg-surface-dark/50 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                              placeholder="e.g. Epic orchestral, Cyberpunk synth..." value="Cinematic ambient sound">
+                        </div>
+                     </div>
+                     
+                     <button id="generate-btn" 
+                        class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-[#6b0bc9] hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold text-lg transition-all shadow-lg">
+                        <span class="material-symbols-outlined text-[24px]">movie_filter</span>
+                        ACTION! (Generate Video)
+                     </button>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: The Bridge (Output) -->
+        <div class="flex-1 bg-[#050308] relative flex flex-col items-center justify-center p-12">
+            
+            <!-- Background Decorations -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                 <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl"></div>
+                 <div class="absolute grid grid-cols-[repeat(20,minmax(0,1fr))] w-full h-full opacity-10">
+                    <!-- Grid lines generated via script or just consistent bg -->
+                 </div>
+            </div>
+
+            <!-- Main Content Card -->
+            <div class="relative z-10 w-full max-w-4xl flex flex-col items-center">
+                
+                <h2 class="text-center font-display text-4xl font-bold text-white mb-2 tracking-tight">The Bridge</h2>
+                <p class="text-center text-gray-400 mb-10 max-w-lg">AI-generated seamless transition between Scene A and Scene C.</p>
+                
+                <div class="w-full aspect-video rounded-3xl bg-surface/40 border border-white/5 shadow-2xl backdrop-blur-sm p-4 relative flex items-center justify-center group" id="bridge-card">
+                    <!-- Placeholder State -->
+                    <div class="text-center">
+                        <div class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform duration-500">
+                             <span class="material-symbols-outlined text-4xl text-gray-600">movie_edit</span>
+                        </div>
+                        <p class="text-gray-500 font-medium">Waiting for inputs...</p>
+                    </div>
+                    
+                    <!-- Loading Overlay (Hidden by default) -->
+                    <div id="loader" class="hidden absolute inset-0 bg-black/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center z-20">
+                         <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                         <p class="text-white font-medium animate-pulse">Forging the bridge...</p>
+                    </div>
+                </div>
+
+                <!-- Timeline / Visualization (Static for now) -->
+                <div class="w-full mt-8 flex items-center justify-between px-4 opacity-50">
+                    <span class="text-xs font-mono text-gray-500">00:00</span>
+                    <div class="connection-line mx-4"></div>
+                    <span class="text-xs font-mono text-gray-500">00:05</span>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentVideoAPath = "";
+        let currentVideoCPath = "";
+
+        // UI Helper: Update filename text when file is selected
+        function handleFileSelect(input, labelId) {
+            if (input.files && input.files[0]) {
+                const label = document.getElementById(labelId);
+                label.innerText = input.files[0].name;
+                label.classList.add("text-primary"); // Turn purple to indicate success
+            }
+        }
+        
+        function resetUI() {
+           document.getElementById("analysis-panel").classList.remove("hidden");
+           document.getElementById("review-panel").classList.add("hidden");
+           document.getElementById("prompt-box").value = "";
+           currentVideoAPath = "";
+           currentVideoCPath = "";
+        }
+
+        // Step 1: Analyze
+        const analyzeBtn = document.getElementById("analyze-btn");
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener("click", async () => {
+                const fileA = document.getElementById("video-upload-a").files[0];
+                const fileC = document.getElementById("video-upload-c").files[0];
+                const btn = document.getElementById("analyze-btn");
+
+                // 1. Validation
+                if (!fileA || !fileC) {
+                    alert("⚠️ Action Required: Please upload both Scene A and Scene C videos.");
+                    return;
+                }
+
+                // 2. Loading State
+                const originalContent = btn.innerHTML;
+                btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> Analyzing Scenes...`;
+                btn.disabled = true;
+                btn.classList.add("opacity-70", "cursor-not-allowed");
+
+                const formData = new FormData();
+                formData.append("video_a", fileA);
+                formData.append("video_c", fileC);
+
+                try {
+                    // 3. Send to Server
+                    const response = await fetch("/analyze", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error("Analysis failed.");
+                    
+                    const data = await response.json();
+                    
+                    // 4. Success: Show Review Panel
+                    document.getElementById("prompt-box").value = data.prompt;
+                    currentVideoAPath = data.video_a_path;
+                    currentVideoCPath = data.video_c_path;
+                    
+                    document.getElementById("analysis-panel").classList.add("hidden");
+                    document.getElementById("review-panel").classList.remove("hidden");
+
+                } catch (error) {
+                    console.error(error);
+                    alert("❌ Analysis Failed: " + error.message);
+                } finally {
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                    btn.classList.remove("opacity-70", "cursor-not-allowed");
+                }
+            });
+        }
+
+        // Step 2: Generate
+        const generateBtn = document.getElementById("generate-btn");
+        if (generateBtn) {
+            generateBtn.addEventListener("click", async () => {
+                const prompt = document.getElementById("prompt-box").value;
+                const style = document.getElementById("style-select").value;
+                // Capture Audio Prompt
+                const audioPrompt = document.getElementById("audio-input").value;
+                const btn = document.getElementById("generate-btn");
+                
+                if (!currentVideoAPath || !currentVideoCPath) {
+                    alert("Session lost. Please re-upload videos.");
+                    resetUI();
+                    return;
+                }
+
+                // Loading State
+                const originalContent = btn.innerHTML;
+                btn.disabled = true;
+                btn.classList.add("opacity-70", "cursor-not-allowed");
+                
+                try {
+                    // 1. Start Job
+                    const response = await fetch("/generate", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            prompt: prompt,
+                            style: style,
+                            audio_prompt: audioPrompt, // Send to server
+                            video_a_path: currentVideoAPath,
+                            video_c_path: currentVideoCPath
+                        })
+                    });
+
+                    if (!response.ok) throw new Error("Generation failed to start.");
+                    
+                    const data = await response.json();
+                    const jobId = data.job_id;
+
+                    // 2. Poll for Status
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            // ADDED TIMESTAMP TO PREVENT CACHING
+                            const statusRes = await fetch(`/status/${jobId}?t=${Date.now()}`);
+                            if (!statusRes.ok) return;
+                            
+                            const statusData = await statusRes.json();
+                            
+                            // Update Button Text
+                            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px] mr-2">progress_activity</span> ${statusData.log} (${statusData.progress}%)`;
+                            
+                            if (statusData.status === "completed") {
+                                clearInterval(pollInterval);
+                                // Show Video
+                                const bridgeCard = document.getElementById("bridge-card");
+                                if (bridgeCard) {
+                                   if (statusData.video_url) {
+                                       bridgeCard.innerHTML = `
+                                        <video controls autoplay loop class="w-full h-full object-cover rounded-2xl border-2 border-primary shadow-neon">
+                                            <source src="${statusData.video_url}" type="video/mp4">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                       `;
+                                       document.getElementById("analysis-panel").classList.remove("hidden");
+                                       document.getElementById("review-panel").classList.add("hidden");
+                                   } else {
+                                       alert("Video generated but URL missing.");
+                                   }
+                                   btn.innerHTML = originalContent;
+                                   btn.disabled = false;
+                                   btn.classList.remove("opacity-70", "cursor-not-allowed");
+                                }
+                            } else if (statusData.status === "error") {
+                                clearInterval(pollInterval);
+                                alert("❌ Generation Error: " + statusData.log);
+                                btn.innerHTML = originalContent;
+                                btn.disabled = false;
+                                btn.classList.remove("opacity-70", "cursor-not-allowed");
+                            }
+                        } catch (e) {
+                            console.error("Polling error", e);
+                        }
+                    }, 1000);
+
+                } catch (error) {
+                    console.error(error);
+                    alert("❌ Request Failed: " + error.message);
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                    btn.classList.remove("opacity-70", "cursor-not-allowed");
+                }
+            });
+        }
+    </script>
+</body>
 </html>
