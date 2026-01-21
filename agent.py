@@ -14,7 +14,8 @@ from google.genai import types
 
 # Import other clients
 from gradio_client import Client, handle_file
-from huggingface_hub import InferenceClient # Using the official client
+
+# REMOVED: from huggingface_hub import InferenceClient (Using requests instead)
 
 # Import refactored modules
 from config import Settings
@@ -39,26 +40,42 @@ class ContinuityState(TypedDict):
     video_c_local_path: Optional[str]
 
 def generate_audio(prompt: str) -> Optional[str]:
-    """Generates audio using InferenceClient (Robust to API changes)."""
+    """Generates audio using requests directly (Bypasses library version issues)."""
     try:
         logger.info(f"🎵 Generating Audio for: {prompt[:30]}...")
 
-        # 1. Initialize Client (Handles Auth & Routing automatically)
-        client = InferenceClient(token=Settings.HF_TOKEN)
+        # --- FIX: Direct Request to Standard Endpoint ---
+        # We use the standard URL. The previous 410 was likely model-specific.
+        API_URL = "https://api-inference.huggingface.co/models/facebook/musicgen-small"
+        headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
+        payload = {"inputs": prompt}
         
-        # 2. Call MusicGen Small
-        # We use .post() to ensure we send the raw payload correctly to the router
-        # This avoids version mismatches with helper methods
-        audio_bytes = client.post(
-            json={"inputs": prompt},
-            model="facebook/musicgen-small"
-        )
-        
-        # 3. Save Output
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
-            f.write(audio_bytes)
-            logger.info(f"✅ Audio generated! ({len(audio_bytes)} bytes)")
-            return f.name
+        # --- RETRY LOOP (Handle Model Loading) ---
+        for attempt in range(5):
+            response = requests.post(API_URL, headers=headers, json=payload)
+            
+            # SUCCESS (200)
+            if response.status_code == 200:
+                audio_bytes = response.content
+                logger.info(f"✅ Audio generated! ({len(audio_bytes)} bytes)")
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
+                    f.write(audio_bytes)
+                    return f.name
+            
+            # MODEL LOADING (503)
+            if response.status_code == 503:
+                error_data = response.json()
+                wait_time = error_data.get("estimated_time", 20)
+                logger.info(f"💤 Model is loading (Attempt {attempt+1}/5). Waiting {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+                
+            # OTHER ERRORS
+            logger.error(f"Audio API Error ({response.status_code}): {response.text}")
+            return None
+            
+        logger.error("Audio generation timed out.")
+        return None
             
     except Exception as e:
         logger.error(f"Audio generation failed: {e}")
@@ -97,7 +114,6 @@ def analyze_videos(state: ContinuityState) -> dict:
     job_id = state.get("job_id")
     
     update_job_status(job_id, "analyzing", 10, "Director starting analysis...")
-
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
     style = state.get('style', 'Cinematic')
