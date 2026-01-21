@@ -95,22 +95,23 @@
     </div>
 
     <!-- Main Workspace (Center Aligned) -->
-    <main class="flex-1 flex flex-col items-center justify-center p-6 pb-32">
-        <div class="w-full max-w-6xl flex items-center justify-center gap-4 md:gap-8 lg:gap-12">
+    <main class="flex-1 flex flex-col items-center justify-center p-6 pb-64">
+        <div class="w-full max-w-6xl flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-20">
 
             <!-- Scene A -->
             <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
                 <div class="flex justify-between px-1">
                     <span class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span>
                 </div>
-                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg"
+                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
                     onclick="document.getElementById('video-upload-a').click()">
                     <div
-                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
                         <span
                             class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
                     </div>
-                    <p id="label-a" class="text-xs font-medium text-gray-400 text-center px-4">Upload Start Clip</p>
+                    <p id="label-a" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload
+                        Start Clip</p>
                     <input type="file" id="video-upload-a" accept="video/*" class="hidden"
                         onchange="handleFileSelect(this, 'label-a')">
                 </div>
@@ -122,17 +123,26 @@
                     <span class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
                         Bridge</span>
                 </div>
+
                 <div id="bridge-card"
-                    class="relative aspect-video bg-black rounded-2xl border border-primary/20 shadow-neon overflow-hidden flex items-center justify-center group transition-all duration-500">
-                    <div
-                        class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
-                    </div>
-                    <div class="text-center relative z-10 p-6">
+                    class="relative aspect-video bg-black rounded-2xl shadow-neon overflow-hidden flex items-center justify-center group">
+
+                    <div id="bridge-content" class="w-full h-full relative z-10">
                         <div
-                            class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3">
-                            <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
+                            class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
                         </div>
-                        <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                            <div
+                                class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
+                                <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
+                            </div>
+                            <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                        </div>
+                    </div>
+
+                    <!-- Overlay Border (Prevents Overlap) -->
+                    <div id="bridge-border"
+                        class="absolute inset-0 rounded-2xl border-2 border-primary/20 pointer-events-none z-20 transition-colors duration-500">
                     </div>
                 </div>
             </div>
@@ -142,14 +152,15 @@
                 <div class="flex justify-end px-1">
                     <span class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span>
                 </div>
-                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg"
+                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
                     onclick="document.getElementById('video-upload-c').click()">
                     <div
-                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
                         <span
                             class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
                     </div>
-                    <p id="label-c" class="text-xs font-medium text-gray-400 text-center px-4">Upload End Clip</p>
+                    <p id="label-c" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload End
+                        Clip</p>
                     <input type="file" id="video-upload-c" accept="video/*" class="hidden"
                         onchange="handleFileSelect(this, 'label-c')">
                 </div>
@@ -253,19 +264,19 @@
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
 
-            const bridgeCard = document.getElementById("bridge-card");
-            // Reset Bridge Card Style
-            bridgeCard.innerHTML = `
+            // Reset UI to idle
+            document.getElementById("bridge-content").innerHTML = `
                 <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
-                <div class="text-center relative z-10 p-6">
-                    <div class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3">
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                    <div class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
                         <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
                     </div>
                     <p class="text-sm text-gray-300">Ready to bridge the gap</p>
                 </div>
           `;
-            bridgeCard.classList.remove("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
-            bridgeCard.classList.add("border-primary/20", "shadow-neon");
+            const border = document.getElementById("bridge-border");
+            border.classList.remove("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+            border.classList.add("border-primary/20");
 
             currentVideoAPath = "";
             currentVideoCPath = "";
@@ -296,7 +307,6 @@
 
                 const data = await res.json();
 
-                // Switch UI
                 document.getElementById("prompt-box").value = data.prompt;
                 currentVideoAPath = data.video_a_path;
                 currentVideoCPath = data.video_c_path;
@@ -351,20 +361,19 @@
                             if (status.status === "completed") {
                                 clearInterval(poll);
 
-                                const bridgeCard = document.getElementById("bridge-card");
-
-                                // FIX: Removed borders/shadows from the VIDEO element to avoid overlap
-                                bridgeCard.innerHTML = `
-                                    <video controls autoplay loop class="w-full h-full object-cover">
+                                // FIX: Replaced content completely, ensured strict sizing
+                                const bridgeContent = document.getElementById("bridge-content");
+                                bridgeContent.innerHTML = `
+                                    <video controls autoplay loop class="w-full h-full object-contain bg-black">
                                         <source src="${status.video_url}" type="video/mp4">
                                     </video>
                                 `;
 
-                                // Apply "Active Glow" to the CONTAINER instead
-                                bridgeCard.classList.remove("border-primary/20", "shadow-neon");
-                                bridgeCard.classList.add("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+                                // Activate Overlay Border
+                                const border = document.getElementById("bridge-border");
+                                border.classList.remove("border-primary/20");
+                                border.classList.add("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
 
-                                // Reset Button
                                 btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Done!`;
                                 setTimeout(() => {
                                     btn.innerHTML = originalText;
@@ -378,7 +387,6 @@
                                 btn.disabled = false;
                                 btn.classList.remove("opacity-50");
                             } else {
-                                // Update log text
                                 btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-lg">progress_activity</span> ${status.log} (${status.progress}%)`;
                             }
                         }
