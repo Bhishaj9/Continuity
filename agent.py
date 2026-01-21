@@ -39,13 +39,14 @@ class ContinuityState(TypedDict):
     video_c_local_path: Optional[str]
 
 def generate_audio(prompt: str) -> Optional[str]:
-    """Generates audio SFX using AudioLDM with a Retry Loop for Cold Starts."""
+    """Generates audio using MusicGen (via Router API) as AudioLDM is deprecated."""
     try:
         logger.info(f"🎵 Generating Audio for: {prompt[:30]}...")
-        
-        # --- FIX: Updated to new Router API (Old api-inference is deprecated/410) ---
-        API_URL = "https://router.huggingface.co/hf-inference/models/cvssp/audioldm-12.8k-caps"
+
+        # --- FIX: Switched to MusicGen (AudioLDM is 404/Gone) ---
+        API_URL = "https://router.huggingface.co/hf-inference/models/facebook/musicgen-small"
         headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
+        # MusicGen works best with a simple text prompt
         payload = {"inputs": prompt}
         
         # --- RETRY LOOP (Handle Model Loading) ---
