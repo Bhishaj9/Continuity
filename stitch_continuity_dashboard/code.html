@@ -71,6 +71,13 @@
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
+
+        /* Strict Clipping Fix */
+        .force-clip {
+            mask-image: radial-gradient(white, black);
+            -webkit-mask-image: -webkit-radial-gradient(white, black);
+            border-radius: inherit;
+        }
     </style>
 </head>
 
@@ -84,7 +91,7 @@
                 <span class="material-symbols-outlined">movie_filter</span>
             </div>
             <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
-                    class="opacity-50 font-normal text-sm ml-2">v2.1</span></h1>
+                    class="opacity-50 font-normal text-sm ml-2">v2.2</span></h1>
         </div>
         <div class="flex items-center gap-2">
             <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
@@ -95,7 +102,7 @@
     </div>
 
     <!-- Main Workspace (Center Aligned) -->
-    <main class="flex-1 flex flex-col items-center justify-center p-6 pb-64">
+    <main class="flex-1 flex flex-col items-center justify-center p-6 pb-80">
         <div class="w-full max-w-6xl flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-20">
 
             <!-- Scene A -->
@@ -124,25 +131,27 @@
                         Bridge</span>
                 </div>
 
-                <div id="bridge-card"
-                    class="relative aspect-video bg-black rounded-2xl shadow-neon overflow-hidden flex items-center justify-center group">
+                <div id="bridge-card-outer"
+                    class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
 
-                    <div id="bridge-content" class="w-full h-full relative z-10">
-                        <div
-                            class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
-                        </div>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                    <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
+
+                        <div id="bridge-content" class="w-full h-full">
                             <div
-                                class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
-                                <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
+                                class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
                             </div>
-                            <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                                <div
+                                    class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
+                                    <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
+                                </div>
+                                <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Overlay Border (Prevents Overlap) -->
-                    <div id="bridge-border"
-                        class="absolute inset-0 rounded-2xl border-2 border-primary/20 pointer-events-none z-20 transition-colors duration-500">
+                        <div id="bridge-border"
+                            class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -173,13 +182,13 @@
 
         <!-- Analysis Panel -->
         <div id="analysis-panel"
-            class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 transition-all duration-300">
+            class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
             <div class="flex flex-col">
                 <span class="text-sm font-bold text-white">Continuity Engine</span>
                 <span class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span>
             </div>
             <button id="analyze-btn"
-                class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg hover:shadow-primary/50 hover:scale-105 active:scale-95">
+                class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg">
                 <span class="material-symbols-outlined text-lg">analytics</span>
                 Analyze Scenes
             </button>
@@ -187,23 +196,21 @@
 
         <!-- Review Panel -->
         <div id="review-panel"
-            class="hidden glass-panel rounded-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-8 fade-in-0 duration-300 border-primary/20 ring-1 ring-white/10">
+            class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300">
             <div class="flex items-center justify-between border-b border-white/10 pb-3">
                 <h3 class="text-sm font-bold text-white flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">movie_edit</span>
                     Director's Configuration
                 </h3>
                 <button onclick="resetUI()"
-                    class="text-xs text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1 hover:bg-white/10 px-2 py-1 rounded transition-colors">
-                    <span class="material-symbols-outlined text-[14px]">restart_alt</span> Reset
-                </button>
+                    class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
             </div>
 
             <div>
                 <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
                     Direction</label>
                 <textarea id="prompt-box" rows="2"
-                    class="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition-all placeholder:text-gray-600"></textarea>
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -211,20 +218,19 @@
                     <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
                         Style</label>
                     <select id="style-select"
-                        class="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:border-primary outline-none transition-all cursor-pointer">
+                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none">
                         <option value="Cinematic">Cinematic</option>
                         <option value="Anime">Anime</option>
                         <option value="Cyberpunk">Cyberpunk</option>
                         <option value="VHS">VHS Glitch</option>
                         <option value="Noir">Noir</option>
-                        <option value="Claymation">Claymation</option>
                     </select>
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
                         Mood</label>
                     <select id="audio-input"
-                        class="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
                         <option value="Cinematic orchestral score, epic, dramatic, high fidelity">Cinematic (Default)
                         </option>
                         <option value="Industrial synthwave, futuristic, neon hum, electronic">Cyberpunk / Sci-Fi
@@ -238,12 +244,11 @@
             </div>
 
             <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-2 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-2">
                 <span class="material-symbols-outlined">auto_fix_high</span>
                 Generate Video
             </button>
         </div>
-
     </div>
 
     <!-- Logic -->
@@ -264,7 +269,7 @@
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
 
-            // Reset UI to idle
+            // Reset Bridge
             document.getElementById("bridge-content").innerHTML = `
                 <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
                 <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
@@ -274,10 +279,15 @@
                     <p class="text-sm text-gray-300">Ready to bridge the gap</p>
                 </div>
           `;
-            const border = document.getElementById("bridge-border");
-            border.classList.remove("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
-            border.classList.add("border-primary/20");
+            // Reset Outer Glow
+            const outer = document.getElementById("bridge-card-outer");
+            outer.classList.remove("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+            outer.classList.add("border-primary/20");
 
+            // Reset Inner Border
+            const border = document.getElementById("bridge-border");
+            border.classList.remove("border-primary/50");
+            border.classList.add("border-transparent");
             currentVideoAPath = "";
             currentVideoCPath = "";
         }
@@ -307,6 +317,7 @@
 
                 const data = await res.json();
 
+                // Switch UI
                 document.getElementById("prompt-box").value = data.prompt;
                 currentVideoAPath = data.video_a_path;
                 currentVideoCPath = data.video_c_path;
@@ -361,7 +372,7 @@
                             if (status.status === "completed") {
                                 clearInterval(poll);
 
-                                // FIX: Replaced content completely, ensured strict sizing
+                                // Render Video (Object-Contain prevents zoom overlap)
                                 const bridgeContent = document.getElementById("bridge-content");
                                 bridgeContent.innerHTML = `
                                     <video controls autoplay loop class="w-full h-full object-contain bg-black">
@@ -369,10 +380,15 @@
                                     </video>
                                 `;
 
-                                // Activate Overlay Border
+                                // Activate Outer Glow
+                                const outer = document.getElementById("bridge-card-outer");
+                                outer.classList.remove("border-primary/20");
+                                outer.classList.add("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+
+                                // Activate Inner Overlay Border
                                 const border = document.getElementById("bridge-border");
-                                border.classList.remove("border-primary/20");
-                                border.classList.add("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+                                border.classList.remove("border-transparent");
+                                border.classList.add("border-primary/50");
 
                                 btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Done!`;
                                 setTimeout(() => {
