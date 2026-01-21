@@ -212,9 +212,17 @@
                 <div>
                     <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
                         Mood</label>
-                    <input id="audio-input" type="text"
-                        class="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:border-primary outline-none transition-all"
-                        value="Cinematic ambient sound" placeholder="e.g. Dark industrial...">
+                    <select id="audio-input"
+                        class="w-full bg-black/20 border border-white/10 rounded-xl p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                        <option value="Cinematic orchestral score, epic, dramatic, high fidelity">Cinematic (Default)
+                        </option>
+                        <option value="Industrial synthwave, futuristic, neon hum, electronic">Cyberpunk / Sci-Fi
+                        </option>
+                        <option value="Nature sounds, wind, birds, flowing water, organic">Nature / Organic</option>
+                        <option value="Tense atmosphere, suspenseful drone, horror, scary">Horror / Suspense</option>
+                        <option value="Lo-fi hip hop, chill, relaxing, soft beats">Lo-fi / Chill</option>
+                        <option value="High energy, rock, intense, fast paced">Action / Intense</option>
+                    </select>
                 </div>
             </div>
 
