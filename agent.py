@@ -15,8 +15,6 @@ from google.genai import types
 # Import other clients
 from gradio_client import Client, handle_file
 
-# REMOVED: from huggingface_hub import InferenceClient (Using requests instead)
-
 # Import refactored modules
 from config import Settings
 from utils import download_to_temp, download_blob, save_video_bytes, update_job_status
@@ -40,46 +38,57 @@ class ContinuityState(TypedDict):
     video_c_local_path: Optional[str]
 
 def generate_audio(prompt: str) -> Optional[str]:
-    """Generates audio using requests directly (Bypasses library version issues)."""
-    try:
-        logger.info(f"🎵 Generating Audio for: {prompt[:30]}...")
+    """Generates audio using the new Router API with fallback models."""
+    
+    # List of models to try (Small first, then Medium as backup)
+    # These URLs use the new 'router' endpoint required by Hugging Face
+    models = [
+        "https://router.huggingface.co/hf-inference/models/facebook/musicgen-small",
+        "https://router.huggingface.co/hf-inference/models/facebook/musicgen-medium"
+    ]
+    
+    headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
+    payload = {"inputs": prompt}
 
-        # --- FIX: Direct Request to Standard Endpoint ---
-        # We use the standard URL. The previous 410 was likely model-specific.
-        API_URL = "https://api-inference.huggingface.co/models/facebook/musicgen-small"
-        headers = {"Authorization": f"Bearer {Settings.HF_TOKEN}"}
-        payload = {"inputs": prompt}
-        
-        # --- RETRY LOOP (Handle Model Loading) ---
-        for attempt in range(5):
-            response = requests.post(API_URL, headers=headers, json=payload)
+    for i, api_url in enumerate(models):
+        try:
+            logger.info(f"🎵 Generating Audio (Attempt {i+1}) using: {api_url.split('/')[-1]}...")
             
-            # SUCCESS (200)
-            if response.status_code == 200:
-                audio_bytes = response.content
-                logger.info(f"✅ Audio generated! ({len(audio_bytes)} bytes)")
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
-                    f.write(audio_bytes)
-                    return f.name
-            
-            # MODEL LOADING (503)
-            if response.status_code == 503:
-                error_data = response.json()
-                wait_time = error_data.get("estimated_time", 20)
-                logger.info(f"💤 Model is loading (Attempt {attempt+1}/5). Waiting {wait_time}s...")
-                time.sleep(wait_time)
-                continue
+            # --- RETRY LOOP (For Loading/503 Errors) ---
+            for attempt in range(5):
+                response = requests.post(api_url, headers=headers, json=payload)
                 
-            # OTHER ERRORS
-            logger.error(f"Audio API Error ({response.status_code}): {response.text}")
-            return None
-            
-        logger.error("Audio generation timed out.")
-        return None
-            
-    except Exception as e:
-        logger.error(f"Audio generation failed: {e}")
-        return None
+                # SUCCESS (200)
+                if response.status_code == 200:
+                    audio_bytes = response.content
+                    logger.info(f"✅ Audio generated! ({len(audio_bytes)} bytes)")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".flac") as f:
+                        f.write(audio_bytes)
+                        return f.name
+                
+                # MODEL LOADING (503)
+                if response.status_code == 503:
+                    error_data = response.json()
+                    wait_time = error_data.get("estimated_time", 20)
+                    logger.info(f"💤 Model is loading. Waiting {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                
+                # 404 NOT FOUND (Model missing/gated) -> Break to try next model
+                if response.status_code == 404:
+                    logger.warning(f"⚠️ Model not found (404): {api_url}")
+                    break
+                
+                # OTHER ERRORS -> Log and retry
+                logger.error(f"Audio API Error ({response.status_code}): {response.text}")
+                time.sleep(2)
+
+        except Exception as e:
+            logger.error(f"Audio generation failed for {api_url}: {e}")
+            continue
+
+    logger.error("❌ All audio generation attempts failed.")
+    return None
 
 def merge_audio_video(video_path: str, audio_path: str) -> str:
     """Merges video and audio using ffmpeg."""
@@ -114,6 +123,7 @@ def analyze_videos(state: ContinuityState) -> dict:
     job_id = state.get("job_id")
     
     update_job_status(job_id, "analyzing", 10, "Director starting analysis...")
+
     video_a_url = state['video_a_url']
     video_c_url = state['video_c_url']
     style = state.get('style', 'Cinematic')
@@ -121,10 +131,12 @@ def analyze_videos(state: ContinuityState) -> dict:
     # 1. Prepare Files
     try:
         path_a = state.get('video_a_local_path')
-        if not path_a: path_a = download_to_temp(video_a_url)
+        if not path_a:
+            path_a = download_to_temp(video_a_url)
 
         path_c = state.get('video_c_local_path')
-        if not path_c: path_c = download_to_temp(video_c_url)
+        if not path_c:
+            path_c = download_to_temp(video_c_url)
     except Exception as e:
         error_msg = f"Download failed: {e}"
         logger.error(error_msg)
@@ -197,7 +209,7 @@ def generate_video(state: ContinuityState) -> dict:
         return {}
 
     local_path = None
-    
+
     # --- ATTEMPT 1: GOOGLE VEO ---
     try:
         logger.info("⚡ Initializing Google Veo (Unified SDK)...")
