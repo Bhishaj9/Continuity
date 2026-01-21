@@ -123,7 +123,7 @@
                         Bridge</span>
                 </div>
                 <div id="bridge-card"
-                    class="relative aspect-video bg-black rounded-2xl border border-primary/20 shadow-neon overflow-hidden flex items-center justify-center group">
+                    class="relative aspect-video bg-black rounded-2xl border border-primary/20 shadow-neon overflow-hidden flex items-center justify-center group transition-all duration-500">
                     <div
                         class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
                     </div>
@@ -252,6 +252,21 @@
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
+
+            const bridgeCard = document.getElementById("bridge-card");
+            // Reset Bridge Card Style
+            bridgeCard.innerHTML = `
+                <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
+                <div class="text-center relative z-10 p-6">
+                    <div class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3">
+                        <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
+                    </div>
+                    <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                </div>
+          `;
+            bridgeCard.classList.remove("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+            bridgeCard.classList.add("border-primary/20", "shadow-neon");
+
             currentVideoAPath = "";
             currentVideoCPath = "";
         }
@@ -335,12 +350,20 @@
 
                             if (status.status === "completed") {
                                 clearInterval(poll);
+
                                 const bridgeCard = document.getElementById("bridge-card");
+
+                                // FIX: Removed borders/shadows from the VIDEO element to avoid overlap
                                 bridgeCard.innerHTML = `
                                     <video controls autoplay loop class="w-full h-full object-cover">
                                         <source src="${status.video_url}" type="video/mp4">
                                     </video>
                                 `;
+
+                                // Apply "Active Glow" to the CONTAINER instead
+                                bridgeCard.classList.remove("border-primary/20", "shadow-neon");
+                                bridgeCard.classList.add("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
+
                                 // Reset Button
                                 btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Done!`;
                                 setTimeout(() => {
