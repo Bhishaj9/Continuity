@@ -1,104 +1,116 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 import uvicorn
 import os
 import shutil
 import uuid
 import json
+import asyncio
 from agent import analyze_only, generate_only
 from utils import get_history_from_gcs
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=True, 
+    allow_methods=["*"], 
+    allow_headers=["*"]
 )
 
-OUTPUT_DIR = "outputs"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
+os.makedirs("outputs", exist_ok=True)
+app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+
+# --- SEQUENTIAL JOB QUEUE ---
+class JobQueue:
+    def __init__(self):
+        self.queue = asyncio.Queue()
+        self.is_processing = False
+
+    async def add_job(self, job_func, *args):
+        await self.queue.put((job_func, args))
+        if not self.is_processing:
+            asyncio.create_task(self.process_queue())
+
+    async def process_queue(self):
+        self.is_processing = True
+        while not self.queue.empty():
+            func, args = await self.queue.get()
+            try:
+                # Run blocking agent code in thread pool to keep async loop alive
+                await asyncio.to_thread(func, *args)
+            except Exception as e:
+                print(f"Queue Error: {e}")
+            self.queue.task_done()
+        self.is_processing = False
+
+job_queue = JobQueue()
+# ---------------------------
 
 @app.get("/")
 def read_root():
     return FileResponse("stitch_continuity_dashboard/code.html")
 
 @app.post("/analyze")
-def analyze_endpoint(
-    video_a: UploadFile = File(...),
-    video_c: UploadFile = File(...)
-):
+def analyze_endpoint(video_a: UploadFile = File(...), video_c: UploadFile = File(...)):
     try:
-        request_id = str(uuid.uuid4())
+        rid = str(uuid.uuid4())
         ext_a = os.path.splitext(video_a.filename)[1] or ".mp4"
         ext_c = os.path.splitext(video_c.filename)[1] or ".mp4"
         
-        path_a = os.path.join(OUTPUT_DIR, f"{request_id}_a{ext_a}")
-        path_c = os.path.join(OUTPUT_DIR, f"{request_id}_c{ext_c}")
+        pa = os.path.join("outputs", f"{rid}_a{ext_a}")
+        pc = os.path.join("outputs", f"{rid}_c{ext_c}")
         
-        with open(path_a, "wb") as buffer:
-            shutil.copyfileobj(video_a.file, buffer)
-        with open(path_c, "wb") as buffer:
-            shutil.copyfileobj(video_c.file, buffer)
-            
-        result = analyze_only(os.path.abspath(path_a), os.path.abspath(path_c), job_id=request_id)
-        
-        if result.get("status") == "error":
-            raise HTTPException(status_code=500, detail=result.get("detail"))
+        with open(pa, "wb") as b:
+            shutil.copyfileobj(video_a.file, b)
+        with open(pc, "wb") as b:
+            shutil.copyfileobj(video_c.file, b)
+
+        res = analyze_only(os.path.abspath(pa), os.path.abspath(pc), job_id=rid)
+        if res.get("status") == "error":
+            raise HTTPException(500, res.get("detail"))
             
         return {
-            "prompt": result["prompt"],
-            "video_a_path": os.path.abspath(path_a),
-            "video_c_path": os.path.abspath(path_c)
+            "prompt": res["prompt"],
+            "video_a_path": os.path.abspath(pa),
+            "video_c_path": os.path.abspath(pc)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(500, str(e))
 
 @app.post("/generate")
-def generate_endpoint(
-    background_tasks: BackgroundTasks,
+async def generate_endpoint(
     prompt: str = Body(...),
     style: str = Body("Cinematic"),
-    audio_prompt: str = Body("Cinematic ambient sound"),
+    audio_prompt: str = Body("Cinematic"),
     negative_prompt: str = Body(""),
     guidance_scale: float = Body(5.0),
     motion_strength: int = Body(5),
     video_a_path: str = Body(...),
     video_c_path: str = Body(...)
 ):
-    try:
-        if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
-            raise HTTPException(status_code=400, detail="Video files not found.")
-            
-        job_id = str(uuid.uuid4())
-        status_file = os.path.join(OUTPUT_DIR, f"{job_id}.json")
-        
-        with open(status_file, "w") as f:
-            json.dump({"status": "queued", "progress": 0, "log": "Job queued..."}, f)
-            
-        # Pass new params to agent
-        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
-        
-        return {"job_id": job_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
+        raise HTTPException(400, "Videos not found.")
+
+    job_id = str(uuid.uuid4())
+    with open(f"outputs/{job_id}.json", "w") as f:
+        json.dump({"status": "queued", "progress": 0, "log": "Queued in Production Line..."}, f)
+
+    # Add to sequential queue instead of fire-and-forget background task
+    await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
+
+    return {"job_id": job_id}
 
 @app.get("/status/{job_id}")
 def get_status(job_id: str):
-    file_path = os.path.join(OUTPUT_DIR, f"{job_id}.json")
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Job not found")
-        
-    try:
-        with open(file_path, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading status: {e}")
+    path = f"outputs/{job_id}.json"
+    if not os.path.exists(path):
+        raise HTTPException(404, "Job not found")
+    with open(path, "r") as f:
+        return json.load(f)
 
 @app.get("/history")
 def get_history():

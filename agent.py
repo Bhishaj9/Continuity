@@ -1,167 +1,87 @@
 import os
 import time
 import logging
-import json
 import tempfile
-from typing import TypedDict, Optional
-from langgraph.graph import StateGraph, END
+import json
 from google import genai
 from google.genai import types
 from config import Settings
-from utils import download_to_temp, download_blob, save_video_bytes, update_job_status
+from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-class ContinuityState(TypedDict):
-    job_id: Optional[str]
-    video_a_url: str
-    video_c_url: str
-    style: Optional[str]
-    audio_prompt: Optional[str]
-    negative_prompt: Optional[str]
-    guidance_scale: Optional[float]
-    motion_strength: Optional[int]
-    scene_analysis: Optional[str]
-    veo_prompt: Optional[str]
-    generated_video_url: Optional[str]
-    video_a_local_path: Optional[str]
-    video_c_local_path: Optional[str]
-
-def analyze_videos(state: ContinuityState) -> dict:
-    job_id = state.get("job_id")
+def analyze_only(path_a, path_c, job_id=None):
     update_job_status(job_id, "analyzing", 10, "Director starting analysis...")
-    video_a_url = state['video_a_url']
-    video_c_url = state['video_c_url']
-    style = state.get('style', 'Cinematic')
-
-    try:
-        path_a = state.get('video_a_local_path')
-        if not path_a:
-            path_a = download_to_temp(video_a_url)
-        path_c = state.get('video_c_local_path')
-        if not path_c:
-            path_c = download_to_temp(video_c_url)
-    except Exception as e:
-        update_job_status(job_id, "error", 0, f"Download failed: {e}")
-        return {}
-        
-    update_job_status(job_id, "analyzing", 20, "Director analyzing motion and lighting...")
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
-    transition_prompt = None
     
-    for attempt in range(3):
-        try:
-            if attempt > 0:
-                update_job_status(job_id, "analyzing", 20, f"Retrying analysis (Attempt {attempt+1})...")
-            
-            file_a = client.files.upload(file=path_a)
-            file_c = client.files.upload(file=path_c)
-            
-            while file_a.state.name == "PROCESSING":
-                time.sleep(1)
-                file_a = client.files.get(name=file_a.name)
-            while file_c.state.name == "PROCESSING":
-                time.sleep(1)
-                file_c = client.files.get(name=file_c.name)
-
-            prompt_text = f"You are a film director. Analyze the motion, lighting, and subject of the first video (Video A) and the second video (Video C). Write a detailed visual prompt for a 2-second video (Video B) that smoothly transitions from the end of A to the start of C. STYLE: {style}. Output only the prompt."
-            
-            update_job_status(job_id, "analyzing", 30, "Director writing scene transition...")
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-exp", 
-                contents=[prompt_text, file_a, file_c]
-            )
-            transition_prompt = response.text
-            break
-        except Exception as e:
-            time.sleep(2)
-            
-    if not transition_prompt:
-        transition_prompt = "Smooth cinematic transition with motion blur matching the scenes."
+    try:
+        file_a = client.files.upload(file=path_a)
+        file_c = client.files.upload(file=path_c)
         
-    update_job_status(job_id, "generating", 40, "Director prompt ready. Starting generation...")
-    return { "scene_analysis": transition_prompt, "veo_prompt": transition_prompt, "video_a_local_path": path_a, "video_c_local_path": path_c }
+        while file_a.state.name == "PROCESSING" or file_c.state.name == "PROCESSING":
+            time.sleep(1)
 
-def generate_video(state: ContinuityState) -> dict:
-    job_id = state.get("job_id")
-    visual_prompt = state.get('veo_prompt', "")
-    audio_context = state.get('audio_prompt', "Realistic ambient sound")
-    negative = state.get('negative_prompt', "")
-    
-    # Construct Enhanced Prompt (Veo 3.1 Prompt Engineering)
-    full_prompt = f"{visual_prompt} Soundtrack: {audio_context}"
-    if negative:
-        full_prompt += f" --no {negative}"
+        prompt = "You are a director. Analyze Video A and Video C. Write a visual prompt for a 2-second transition (Video B) connecting A to C. Output ONLY the prompt."
+        update_job_status(job_id, "analyzing", 30, "Director drafting transition...")
         
-    update_job_status(job_id, "generating", 50, "Veo initializing...")
-    local_path = None
-    
+        res = client.models.generate_content(
+            model="gemini-2.0-flash-exp", 
+            contents=[prompt, file_a, file_c]
+        )
+        return {"prompt": res.text, "status": "success"}
+    except Exception as e:
+        return {"detail": str(e), "status": "error"}
+
+def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
+    update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
+
+    full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
+    if neg:
+        full_prompt += f" --no {neg}"
+        
     try:
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
-            update_job_status(job_id, "generating", 60, f"Veo 3.1 generating...")
-            # Note: Unified SDK usually handles configs like this
-            operation = client.models.generate_videos(
+            
+            # Using generate_videos with config
+            # Note: Guidance and Motion strength parameters would be used here if the model config supported them directly in this SDK version
+            # For now we use the main prompt instructions.
+            op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
-            while not operation.done:
+            
+            while not op.done:
                 time.sleep(5)
-                operation = client.operations.get(operation)
+                op = client.operations.get(op)
+
+            if op.result and op.result.generated_videos:
+                vid = op.result.generated_videos[0]
+                bridge_path = None
                 
-            if operation.result and operation.result.generated_videos:
-                video_result = operation.result.generated_videos[0]
-                if hasattr(video_result.video, 'uri') and video_result.video.uri:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
-                        local_path = f.name
-                    download_blob(video_result.video.uri, local_path)
-                elif hasattr(video_result.video, 'video_bytes') and video_result.video.video_bytes:
-                    local_path = save_video_bytes(video_result.video.video_bytes)
+                if vid.video.uri:
+                    bridge_path = tempfile.mktemp(suffix=".mp4")
+                    download_blob(vid.video.uri, bridge_path)
+                elif vid.video.video_bytes:
+                    bridge_path = save_video_bytes(vid.video.video_bytes)
+                
+                if bridge_path:
+                    # --- PHASE 3: THE FINAL CUT ---
+                    update_job_status(job_id, "stitching", 80, "Stitching Director's Cut (A+B+C)...")
+                    final_cut_path = os.path.join("outputs", f"{job_id}_full_movie.mp4")
+                    
+                    try:
+                        final_output = stitch_videos(path_a, bridge_path, path_c, final_cut_path)
+                        # Update with the FULL MOVIE, not just the bridge
+                        update_job_status(job_id, "completed", 100, "Done! Director's Cut Ready.", video_url=final_output)
+                    except Exception as e:
+                        # If stitch fails, fallback to just the bridge
+                        logging.error(f"Stitch failed: {e}")
+                        update_job_status(job_id, "completed", 100, "Stitch failed, showing bridge only.", video_url=bridge_path)
+                    return
     except Exception as e:
-        update_job_status(job_id, "error", 0, f"Veo Generation Failed: {e}")
-        return {}
+        update_job_status(job_id, "error", 0, f"Error: {e}")
+        return
         
-    if not local_path:
-         update_job_status(job_id, "error", 0, "Video generation failed (Veo).")
-         return {}
-         
-    update_job_status(job_id, "completed", 100, "Done!", video_url=local_path)
-    return {"generated_video_url": local_path}
-
-workflow = StateGraph(ContinuityState)
-workflow.add_node("analyst", analyze_videos)
-workflow.add_node("generator", generate_video)
-workflow.set_entry_point("analyst")
-workflow.add_edge("analyst", "generator")
-workflow.add_edge("generator", END)
-
-app = workflow.compile()
-
-def analyze_only(state_or_path_a, path_c=None, job_id=None):
-    state = {
-        "job_id": job_id,
-        "video_a_url": "local",
-        "video_c_url": "local",
-        "video_a_local_path": state_or_path_a,
-        "video_c_local_path": path_c
-    }
-    result = analyze_videos(state)
-    return {"prompt": result.get("scene_analysis"), "status": "success"}
-
-def generate_only(prompt, path_a, path_c, job_id=None, style="Cinematic", audio_prompt="Cinematic", negative_prompt="", guidance_scale=5.0, motion_strength=5):
-    state = {
-        "job_id": job_id,
-        "video_a_url": "local",
-        "video_c_url": "local",
-        "video_a_local_path": path_a,
-        "video_c_local_path": path_c,
-        "veo_prompt": prompt,
-        "style": style,
-        "audio_prompt": audio_prompt,
-        "negative_prompt": negative_prompt,
-        "guidance_scale": guidance_scale,
-        "motion_strength": motion_strength
-    }
-    return generate_video(state)
+    update_job_status(job_id, "error", 0, "Generation failed.")
