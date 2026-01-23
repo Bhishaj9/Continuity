@@ -260,37 +260,53 @@
                 class="material-symbols-outlined">auto_fix_high</span> Generate Video</button>
     </div>
 
+    <div id="drawer-overlay" class="fixed inset-0 bg-black/50 z-[90] hidden" onclick="toggleDrawer(false)"></div>
+    <div id="gallery-drawer"
+        class="fixed right-0 top-0 h-full w-80 bg-surface-dark shadow-2xl z-[100] transform drawer-closed flex flex-col border-l border-white/10 transition-transform duration-300">
+        <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
+                    class="material-symbols-outlined text-primary">history</span> History</h2>
+            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
+                    class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div class="text-center text-gray-500 mt-10">Loading history...</div>
+        </div>
+    </div>
+
     <script>
-        function savePreference(key, value) {
-            localStorage.setItem('continuity_' + key, value);
-        }
-        function loadPreferences() { const s = localStorage.getItem('continuity_style'); const a = localStorage.getItem('continuity_audio'); if (s) document.getElementById('style-select').value = s; if (a) document.getElementById('audio-input').value = a; }
-
-        // Init 
-        loadPreferences();
-
         function toggleDrawer(show) {
-            const d = document.getElementById('gallery-drawer');
-            const o = document.getElementById('drawer-overlay');
+            const drawer = document.getElementById('gallery-drawer');
+            const overlay = document.getElementById('drawer-overlay');
 
+            if (!drawer || !overlay) {
+                console.error("Drawer elements not found! Check HTML structure.");
+                return;
+            }
             if (show) {
-                if (d && o) {
-                    d.classList.remove('drawer-closed');
-                    d.classList.add('drawer-open');
-                    o.classList.remove('hidden');
-                    fetchHistory();
-                }
+                drawer.classList.remove('drawer-closed');
+                drawer.classList.add('drawer-open');
+                overlay.classList.remove('hidden');
+                fetchHistory();
             } else {
-                if (d && o) {
-                    d.classList.remove('drawer-open');
-                    d.classList.add('drawer-closed');
-                    o.classList.add('hidden');
-                }
+                drawer.classList.remove('drawer-open');
+                drawer.classList.add('drawer-closed');
+                overlay.classList.add('hidden');
             }
         }
+        // --- APP LOGIC ---
+        let currentVideoAPath = "";
+        let currentVideoCPath = "";
+        function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
+        function loadPreferences() {
+            const s = localStorage.getItem('continuity_style');
+            const a = localStorage.getItem('continuity_audio');
+            if (s) document.getElementById('style-select').value = s;
+            if (a) document.getElementById('audio-input').value = a;
+        }
+        loadPreferences(); // Safe to run here as inputs exist
         async function fetchHistory() {
             const c = document.getElementById('gallery-content');
-            if (!c) return;
             c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
             try {
                 const res = await fetch('/history');
@@ -304,12 +320,9 @@
                 <video src="${i.url}" class="w-full aspect-video object-cover" controls></video>
                 <div class="p-2 flex justify-between items-center">
                     <span class="text-[10px] text-gray-400 truncate w-32">${i.name}</span>
-                    <a href="${i.url}" download class="text-gray-400 hover:text-white">
-                        <span class="material-symbols-outlined text-sm">download</span>
-                    </a>
+                    <a href="${i.url}" download class="text-gray-400 hover:text-white"><span class="material-symbols-outlined text-sm">download</span></a>
                 </div>
-            </div>
-        `).join('');
+            </div>`).join('');
             } catch (e) {
                 c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.</div>';
             }
@@ -324,44 +337,28 @@
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
-            currentVideoAPath = "";
-            currentVideoCPath = "";
-
-            // Reset Bridge Display
-            document.getElementById("bridge-content").innerHTML = `
-        <div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span>
-            <p class="text-xs text-gray-400">Ready</p>
-        </div>`;
+            currentVideoAPath = ""; currentVideoCPath = "";
+            document.getElementById("bridge-content").innerHTML = `<div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span><p class="text-xs text-gray-400">Ready</p></div>`;
             document.getElementById("bridge-card-outer").classList.replace("border-primary", "border-primary/20");
             document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
             document.getElementById("merged-download-container").classList.add("hidden");
         }
-        let currentVideoAPath = "";
-        let currentVideoCPath = "";
-
         document.getElementById("analyze-btn").addEventListener("click", async () => {
             const fA = document.getElementById("video-upload-a").files[0];
             const fC = document.getElementById("video-upload-c").files[0];
             if (!fA || !fC) return alert("Upload both scenes.");
-
             const btn = document.getElementById("analyze-btn");
             btn.disabled = true;
             btn.innerHTML = `Analyzing...`;
-
             const fd = new FormData();
             fd.append("video_a", fA);
             fd.append("video_c", fC);
-
             try {
                 const res = await fetch("/analyze", { method: "POST", body: fd });
                 const data = await res.json();
-                if (data.detail) throw new Error(data.detail);
                 document.getElementById("prompt-box").value = data.prompt;
                 currentVideoAPath = data.video_a_path;
                 currentVideoCPath = data.video_c_path;
-
                 document.getElementById("analysis-panel").classList.add("hidden");
                 document.getElementById("review-panel").classList.remove("hidden");
             } catch (e) {
@@ -375,7 +372,6 @@
             const btn = document.getElementById("generate-btn");
             btn.disabled = true;
             btn.innerHTML = `Generating...`;
-
             try {
                 const res = await fetch("/generate", {
                     method: "POST",
@@ -391,39 +387,26 @@
                         video_c_path: currentVideoCPath
                     })
                 });
-
                 const data = await res.json();
                 const poll = setInterval(async () => {
                     const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
                     if (sRes.ok) {
                         const s = await sRes.json();
-
                         if (s.status === "completed") {
                             clearInterval(poll);
-
-                            // 1. Show raw Bridge
-                            document.getElementById("bridge-content").innerHTML = `
-                        <video controls autoplay loop class="w-full h-full object-contain bg-black">
-                            <source src="${s.video_url}" type="video/mp4">
-                        </video>`;
-
-                            // UI State
+                            document.getElementById("bridge-content").innerHTML = `<video controls autoplay loop class="w-full h-full object-contain bg-black"><source src="${s.video_url}" type="video/mp4"></video>`;
                             document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
-                            document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
-
-                            // 2. Show Merged Button if available
+                            document.getElementById("bridge-border").classList.replace("border-transparent", "border-primary/50");
                             if (s.merged_video_url) {
                                 const dlBtn = document.getElementById("merged-download-btn");
                                 dlBtn.href = s.merged_video_url;
                                 document.getElementById("merged-download-container").classList.remove("hidden");
                             }
-
                             btn.innerHTML = "Done!";
                             setTimeout(() => {
                                 btn.disabled = false;
                                 btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`;
                             }, 3000);
-
                         } else if (s.status === "error") {
                             clearInterval(poll);
                             alert(s.log);
@@ -440,19 +423,6 @@
             }
         });
     </script>
-    <div id="drawer-overlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleDrawer(false)"></div>
-    <div id="gallery-drawer"
-        class="fixed right-0 top-0 h-full w-80 bg-surface-dark shadow-2xl z-[100] transform drawer-closed flex flex-col border-l border-white/10 transition-transform duration-300">
-        <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
-                    class="material-symbols-outlined text-primary">history</span> History</h2>
-            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
-                    class="material-symbols-outlined">close</span></button>
-        </div>
-        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
-            <div class="text-center text-gray-500 mt-10">Loading history...</div>
-        </div>
-    </div>
 </body>
 
 </html>
