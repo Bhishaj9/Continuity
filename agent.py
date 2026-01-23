@@ -58,24 +58,26 @@ def analyze_only(path_a, path_c, job_id=None):
         """
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
         
-        # Request JSON output
         res = client.models.generate_content(
             model="gemini-2.0-flash-exp", 
             contents=[prompt, file_a, file_c],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         
-        # FIX: Robust JSON Cleaning
+        # FIX: Robust JSON Cleaning & List Handling
         text = res.text.strip()
         if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[3:]
+        elif text.startswith("```"): text = text[3:]
         if text.endswith("```"): text = text[:-3]
         text = text.strip()
         
         try:
             data = json.loads(text)
+            # CRITICAL FIX: Handle list response
+            if isinstance(data, list):
+                data = data[0] if len(data) > 0 else {}
+                
         except json.JSONDecodeError:
-            # Fallback if JSON fails
             logger.warning("JSON Decode failed, using raw text fallback")
             return {
                 "analysis_a": "Analysis unavailable",
@@ -86,7 +88,7 @@ def analyze_only(path_a, path_c, job_id=None):
         return {
             "analysis_a": data.get("analysis_a", ""),
             "analysis_c": data.get("analysis_c", ""),
-            "prompt": data.get("visual_prompt_b", text),
+            "prompt": data.get("visual_prompt_b", text), # Fallback to full text if key missing
             "status": "success"
         }
     except Exception as e:
