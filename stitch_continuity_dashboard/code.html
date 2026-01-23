@@ -46,19 +46,6 @@
             overflow: hidden;
         }
 
-        /* Drawer Logic */
-        #gallery-drawer {
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .drawer-open {
-            transform: translateX(0%);
-        }
-
-        .drawer-closed {
-            transform: translateX(100%);
-        }
-
         /* Sliders */
         input[type=range] {
             -webkit-appearance: none;
@@ -88,28 +75,20 @@
 
 <body
     class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white relative">
-
-    <!-- Fixed Header -->
-    <header
-        class="flex items-center justify-between px-6 py-4 w-full z-40 relative bg-background-dark/80 backdrop-blur-sm border-b border-white/5">
-        <div class="flex items-center gap-3">
-            <div
-                class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
-                <span class="material-symbols-outlined">movie_filter</span>
-            </div>
-            <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
+    <div class="flex items-center gap-3">
+        <div
+            class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
+            <span class="material-symbols-outlined">movie_filter</span>
         </div>
-        <div class="flex items-center gap-3">
-            <button onclick="toggleDrawer(true)"
-                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
-                <span class="material-symbols-outlined text-lg">history</span> Gallery
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content Area with Scroll -->
-    <div
-        class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12 mb-32 z-0 relative flex-1 overflow-y-auto px-4 custom-scrollbar">
+        <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
+    </div>
+    <div class="flex items-center gap-3">
+        <button onclick="toggleDrawer(true)"
+            class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
+            <span class="material-symbols-outlined text-lg">history</span> Gallery
+        </button>
+    </div>
+    <div class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12">
 
         <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
             <div class="flex justify-between px-1"><span
@@ -130,7 +109,6 @@
             <div class="flex justify-center px-1"><span
                     class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
                     Bridge</span></div>
-
             <div id="bridge-card-outer"
                 class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
                 <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
@@ -153,8 +131,8 @@
                 class="hidden flex justify-center mt-4 animate-in fade-in slide-in-from-top-2">
                 <a id="merged-download-btn" href="#" download
                     class="flex items-center gap-2 px-6 py-3 bg-surface-dark hover:bg-white/5 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg group">
-                    <span class="material-symbols-outlined group-hover:animate-bounce">movie</span>
-                    Download Merged (A+B+C)
+                    <span class="material-symbols-outlined group-hover:animate-bounce">movie</span> Download Merged
+                    (A+B+C)
                 </a>
             </div>
         </div>
@@ -174,10 +152,8 @@
             </div>
         </div>
     </div>
-
-    <!-- Floating Controls -->
     <div id="analysis-panel"
-        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-2xl">
+        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
         <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
                 class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
         <div class="flex gap-2">
@@ -190,7 +166,7 @@
         </div>
     </div>
     <div id="review-panel"
-        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-xl">
+        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar">
         <div class="flex items-center justify-between border-b border-white/10 pb-3">
             <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
                     class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
@@ -259,19 +235,16 @@
             class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1"><span
                 class="material-symbols-outlined">auto_fix_high</span> Generate Video</button>
     </div>
-
-    <div id="drawer-overlay" class="fixed inset-0 bg-black/50 z-[90] hidden" onclick="toggleDrawer(false)"></div>
-    <div id="gallery-drawer"
-        class="fixed right-0 top-0 h-full w-80 bg-surface-dark shadow-2xl z-[100] transform drawer-closed flex flex-col border-l border-white/10 transition-transform duration-300">
-        <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
-                    class="material-symbols-outlined text-primary">history</span> History</h2>
-            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
-                    class="material-symbols-outlined">close</span></button>
-        </div>
-        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
-            <div class="text-center text-gray-500 mt-10">Loading history...</div>
-        </div>
+    <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
+                class="material-symbols-outlined text-primary">history</span> History</h2>
+        <button onclick="toggleDrawer(false)"
+            class="text-gray-400 hover:text-white transition-colors cursor-pointer"><span
+                class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="text-center text-gray-500 mt-10">Loading history...</div>
+    </div>
     </div>
 
     <script>
@@ -284,17 +257,18 @@
                 return;
             }
             if (show) {
-                drawer.classList.remove('drawer-closed');
-                drawer.classList.add('drawer-open');
+                // Use Tailwind classes to animate
+                drawer.classList.remove('translate-x-full');
+                drawer.classList.add('translate-x-0');
                 overlay.classList.remove('hidden');
                 fetchHistory();
             } else {
-                drawer.classList.remove('drawer-open');
-                drawer.classList.add('drawer-closed');
+                drawer.classList.remove('translate-x-0');
+                drawer.classList.add('translate-x-full');
                 overlay.classList.add('hidden');
             }
         }
-        // --- APP LOGIC ---
+        // --- REST OF APP LOGIC ---
         let currentVideoAPath = "";
         let currentVideoCPath = "";
         function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
@@ -304,7 +278,7 @@
             if (s) document.getElementById('style-select').value = s;
             if (a) document.getElementById('audio-input').value = a;
         }
-        loadPreferences(); // Safe to run here as inputs exist
+        loadPreferences();
         async function fetchHistory() {
             const c = document.getElementById('gallery-content');
             c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
@@ -337,7 +311,9 @@
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
-            currentVideoAPath = ""; currentVideoCPath = "";
+            currentVideoAPath = "";
+            currentVideoCPath = "";
+
             document.getElementById("bridge-content").innerHTML = `<div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span><p class="text-xs text-gray-400">Ready</p></div>`;
             document.getElementById("bridge-card-outer").classList.replace("border-primary", "border-primary/20");
             document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
