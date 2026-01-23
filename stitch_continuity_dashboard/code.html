@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Continuity: Director's Suite</title>
+    <title>Continuity</title>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
@@ -46,6 +46,7 @@
             overflow: hidden;
         }
 
+        /* Drawer Logic */
         #gallery-drawer {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -58,6 +59,7 @@
             transform: translateX(100%);
         }
 
+        /* Sliders */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -85,7 +87,7 @@
 </head>
 
 <body
-    class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white">
+    class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white relative">
     <div class="flex items-center gap-3">
         <div
             class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
@@ -99,7 +101,8 @@
             <span class="material-symbols-outlined text-lg">history</span> Gallery
         </button>
     </div>
-    <div class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12">
+    <div
+        class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12 mb-32 z-0 relative">
 
         <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
             <div class="flex justify-between px-1"><span
@@ -139,13 +142,12 @@
                         class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30"></div>
                 </div>
             </div>
-
             <div id="merged-download-container"
                 class="hidden flex justify-center mt-4 animate-in fade-in slide-in-from-top-2">
                 <a id="merged-download-btn" href="#" download
                     class="flex items-center gap-2 px-6 py-3 bg-surface-dark hover:bg-white/5 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg group">
-                    <span class="material-symbols-outlined group-hover:animate-bounce">download</span>
-                    Download Merged Video
+                    <span class="material-symbols-outlined group-hover:animate-bounce">movie</span>
+                    Download Merged (A+B+C)
                 </a>
             </div>
         </div>
@@ -165,17 +167,8 @@
             </div>
         </div>
     </div>
-    <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
-        <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
-                class="material-symbols-outlined text-primary">history</span> History</h2>
-        <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
-                class="material-symbols-outlined">close</span></button>
-    </div>
-    <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
-        <div class="text-center text-gray-500 mt-10">Loading...</div>
-    </div>
     <div id="analysis-panel"
-        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
+        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-2xl">
         <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
                 class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
         <div class="flex gap-2">
@@ -188,7 +181,7 @@
         </div>
     </div>
     <div id="review-panel"
-        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-xl">
         <div class="flex items-center justify-between border-b border-white/10 pb-3">
             <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
                     class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
@@ -205,7 +198,6 @@
                 Direction</label><textarea id="prompt-box" rows="2"
                 class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
         </div>
-
         <div class="grid grid-cols-2 gap-4">
             <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
                     Style</label><select id="style-select" onchange="savePreference('style', this.value)"
@@ -226,7 +218,6 @@
                     <option value="High energy rock">Action</option>
                 </select></div>
         </div>
-
         <div class="border-t border-white/10 pt-3">
             <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
                 class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full"><span
@@ -255,7 +246,6 @@
                 </div>
             </div>
         </div>
-
         <button id="generate-btn"
             class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1"><span
                 class="material-symbols-outlined">auto_fix_high</span> Generate Video</button>
@@ -273,310 +263,188 @@
 
         function toggleDrawer(show) {
             if (show) {
-        // Since the element id "gallery-drawer" is used in CSS but not explicitly in the HTML body above (it might be dynamically created or missed in the snippet, 
-        // but I will assume the user provided snippet is what they want).
-        // Wait, looking closely at the provided HTML... I don't see #gallery-drawer defined in the body!
-        // The user's snippet seems to be missing the Drawer HTML structure itself, it just has the toggle and content references.
-        // However, the user said "Here is the fixed code.html" and provided a full HTML structure.
-        // Actually, scanning the provided HTML again...
-        // Ah, the user's snippet indeed seems to be missing the drawer container div that was there in previous versions!
-        // But the user said "Please OVERWRITE... with this stabilized version".
-        // If I overwrite with exactly what they gave, and it's missing the drawer div, the drawer won't work.
-        // Let's look at the "Previous Session Summary" or "view_code_item".
-        // The prompt says "Here is the fixed code.html".
-        // I should trust the user provided code, BUT, if it's broken (missing ID), it will error.
-        // Let's carefully check the provided HTML string in the prompt.
-        // It ends with standard closing tags? No, it ends with `</div>` (closing review-panel) and then script blocks.
-        // It does NOT have the closing `</body>` or `</html>` in the snippet provided in the prompt?
-        // Wait, looking at the prompt...
-        // The prompt ends with `<script> ... function ... </script>`.
-    // It does NOT have the drawer div.
-    // Wait, looking at the prompt again "Here is the fixed code.html: ... HTML ... ".
-    // It seems the user provided code snippet might be truncated or minimal?
-    // OR, the user expects me to MERGE it? NO, "Please OVERWRITE".
-    // If I overwrite with missing drawer, it's bad.
-    // BUT, looking at the provided code, there is `document.getElementById('gallery-drawer')`.
-    // If the element doesn't exist, JS throws.
-    // Let's look effectively at the snippets...
-    // The previous `code.html` had a side drawer.
-    // This new one has "History" button that calls `toggleDrawer`.
-    // I suspect the user might have accidentally omitted the Drawer HTML in their copy-paste or the snippet in the
-    prompt is just the Main Body + Scripts.
-    // Actually, looking at the indentation...
-    // It seems complete up to the script.
-    // Should I add the drawer back?
-    // The user said "Please OVERWRITE ... with THIS ... version".
-    // If I add the drawer, I might be modifying their "clean architecture".
-    // BUT if I don't, it crashes.
-    // Let's assume the user made a mistake and forgot to include the drawer div in the snippet, OR the snippet is just
-    the "visible" part.
-    // Wait! The snippet has `<div id="gallery-content">` !
-        // In the provided snippet:
-        // `<div class="p-6 border-b border-white/5 ..."> ... History ... </div>`
-        // `<div id="gallery-content" ...> ... </div>`
-        // These look like they constitute the drawer!
-        // But they are just floating in the body?
-        // `<div class="w-full max-w-6xl ..."> ... </div>` (Main Content)
-        // Then `<div class="p-6 ...">` (Header for history?)
-            // Then `<div id="gallery-content" ...>`
-                // Using "Flex-col" on body.
-                // So the history would be at the bottom?
-                // BUT the CSS says `#gallery-drawer { transition: ... }`.
-                // The JS says `const drawer = document.getElementById('gallery-drawer');`.
-                // But there is NO element with id `gallery-drawer` in the provided HTML!
-                // There IS `<div id="gallery-content">`.
-                    // This suggests the user's provided code IS incomplete or buggy regarding the drawer ID.
-                    // They said "The Fixes: ... Gallery Drawer (z-100)".
-                    // So they INTENDED to have a drawer.
-                    // I will intelligently WRAP the history parts in a drawer div with id `gallery-drawer`.
-                    // The history parts seem to be:
-                    // ```html
-                    // <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
-                        // <h2 ...>History</h2>
-                        // <button onclick="toggleDrawer(false)" ...>close</button>
-                        // </div>
-                    // <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">...</div>
-                    // ```
-                    // I will wrap these in:
-                    // `<div id="gallery-drawer"
-                        class="fixed right-0 top-0 h-full w-80 bg-surface-dark shadow-2xl z-50 transform transition-transform duration-300 translate-x-full">
-                        `
-                        // Wait, the CSS in the head has:
-                        // `#gallery-drawer { transition: transform 0.3s ... }`
-                        // `.drawer-open { transform: translateX(0%); }`
-                        // `.drawer-closed { transform: translateX(100%); }`
-                        // So I should just make sure the element exists with the right classes.
-                        // I will add the wrapper `div` with id `gallery-drawer` and class `fixed inset-y-0 right-0 w-80
-                        bg-[#1a1221] shadow-2xl z-[100] transform drawer-closed flex flex-col border-l border-white/10`.
-                        // This seems safe and necessary to fulfill the "Stabilized" request without breaking it.
+                // Ensure drawer exists
+                const d = document.getElementById('gallery-drawer');
+                const o = document.getElementById('drawer-overlay');
+                if (d && o) {
+                    d.classList.replace('drawer-closed', 'drawer-open');
+                    o.classList.remove('hidden');
+                    fetchHistory();
+                }
+            } else {
+                const d = document.getElementById('gallery-drawer');
+                const o = document.getElementById('drawer-overlay');
+                if (d && o) {
+                    d.classList.replace('drawer-open', 'drawer-closed');
+                    o.classList.add('hidden');
+                }
+            }
+        }
+        async function fetchHistory() {
+            const c = document.getElementById('gallery-content');
+            if (!c) return;
+            c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
+            try {
+                const res = await fetch('/history');
+                const data = await res.json();
+                if (!data || !data.length) {
+                    c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history found.</div>';
+                    return;
+                }
+                c.innerHTML = data.map(i => `
+            <div class="bg-black/40 rounded-lg overflow-hidden border border-white/5 mb-4">
+                <video src="${i.url}" class="w-full aspect-video object-cover" controls></video>
+                <div class="p-2 flex justify-between items-center">
+                    <span class="text-[10px] text-gray-400 truncate w-32">${i.name}</span>
+                    <a href="${i.url}" download class="text-gray-400 hover:text-white">
+                        <span class="material-symbols-outlined text-sm">download</span>
+                    </a>
+                </div>
+            </div>
+        `).join('');
+            } catch (e) {
+                c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.</div>';
+            }
+        }
+        function handleFileSelect(input, labelId) {
+            if (input.files[0]) {
+                document.getElementById(labelId).innerText = input.files[0].name;
+                document.getElementById(labelId).classList.add("text-primary", "font-bold");
+            }
+        }
+        function resetUI() {
+            document.getElementById("analysis-panel").classList.remove("hidden");
+            document.getElementById("review-panel").classList.add("hidden");
+            document.getElementById("prompt-box").value = "";
+            currentVideoAPath = "";
+            currentVideoCPath = "";
 
-                        // Also, the user text says: "Z-Layer Reset: ... Gallery Drawer (z-100)."
-                        // So I must ensure z-100 is there.
+            // Reset Bridge Display
+            document.getElementById("bridge-content").innerHTML = `
+        <div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span>
+            <p class="text-xs text-gray-400">Ready</p>
+        </div>`;
+            document.getElementById("bridge-card-outer").classList.replace("border-primary", "border-primary/20");
+            document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
+            document.getElementById("merged-download-container").classList.add("hidden");
+        }
+        let currentVideoAPath = "";
+        let currentVideoCPath = "";
 
-                        // Similarly for "Floating Controls (z-50)".
-                        // The analysis panel and review panel seem to be the floating controls.
-                        // I should stick to the classes provided but ensure the logic holds.
-                        // The user provided HTML has:
-                        // `<div id="analysis-panel" class="glass-panel ...">`
-                            // It doesn't explicitly have `z-50` in the class list in the snippet!
-                            // But the user description says "Fixes: ... Floating Controls (z-50)".
-                            // So I should ADD `z-50` to the classes of #analysis-panel and #review-panel.
+        document.getElementById("analyze-btn").addEventListener("click", async () => {
+            const fA = document.getElementById("video-upload-a").files[0];
+            const fC = document.getElementById("video-upload-c").files[0];
+            if (!fA || !fC) return alert("Upload both scenes.");
 
-                            // Also "Header (z-40)".
-                            // The first div `<div class="flex items-center gap-3">` (Header?)
-                                // I should add `relative z-40` or `fixed z-40`.
+            const btn = document.getElementById("analyze-btn");
+            btn.disabled = true;
+            btn.innerHTML = `Analyzing...`;
 
-                                // "Main Content (z-0)".
-                                // The big container `<div class="w-full max-w-6xl ...">`.
-                                    // I will add `relative z-0`.
+            const fd = new FormData();
+            fd.append("video_a", fA);
+            fd.append("video_c", fC);
 
-                                    // "Safe Spacing: Increased bottom padding (pb-64)".
-                                    // I should add `pb-64` to the main content container or body?
-                                    // Usually body or content wrapper. I will add to the main content wrapper.
+            try {
+                const res = await fetch("/analyze", { method: "POST", body: fd });
+                const data = await res.json();
+                if (data.detail) throw new Error(data.detail);
+                document.getElementById("prompt-box").value = data.prompt;
+                currentVideoAPath = data.video_a_path;
+                currentVideoCPath = data.video_c_path;
 
-                                    // Un-minified Logic.
-                                    // The script at the bottom needs to be clean.
+                document.getElementById("analysis-panel").classList.add("hidden");
+                document.getElementById("review-panel").classList.remove("hidden");
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes`;
+            }
+        });
+        document.getElementById("generate-btn").addEventListener("click", async () => {
+            const btn = document.getElementById("generate-btn");
+            btn.disabled = true;
+            btn.innerHTML = `Generating...`;
 
-                                    // I will reconstruct the file using the User's snippet as the SOURCE of truth for
-                                    content, but injecting the fixes they claimed to have made (but might have missed in
-                                    the copy paste details or I need to ensure are there).
-                                    // ACTUALLY, usually when users paste "Here is the fixed code", they expect me to
-                                    use it EXACTLY.
-                                    // BUT if I see `getElementById('gallery-drawer')` and NO ID `gallery-drawer`, it is
-                                    100% a bug.
-                                    // I will fix the bug by wrapping.
+            try {
+                const res = await fetch("/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: document.getElementById("prompt-box").value,
+                        style: document.getElementById("style-select").value,
+                        audio_prompt: document.getElementById("audio-input").value,
+                        negative_prompt: document.getElementById("negative-prompt").value,
+                        guidance_scale: document.getElementById("guidance-scale").value,
+                        motion_strength: document.getElementById("motion-strength").value,
+                        video_a_path: currentVideoAPath,
+                        video_c_path: currentVideoCPath
+                    })
+                });
 
-                                    if (show) {
-                                    drawer.classList.replace('drawer-closed', 'drawer-open');
-                                    overlay.classList.remove('hidden');
-                                    fetchHistory();
-                                    } else {
-                                    drawer.classList.replace('drawer-open', 'drawer-closed');
-                                    overlay.classList.add('hidden');
-                                    }
-                                    }
+                const data = await res.json();
+                const poll = setInterval(async () => {
+                    const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
+                    if (sRes.ok) {
+                        const s = await sRes.json();
 
-                                    async function fetchHistory() {
-                                    const c = document.getElementById('gallery-content');
-                                    c.innerHTML = '<div class="text-center mt-10"><span
-                                            class="material-symbols-outlined animate-spin">progress_activity</span>
-                                    </div>';
-                                    try {
-                                    const res = await fetch('/history');
-                                    const data = await res.json();
-                                    if (!data || !data.length) {
-                                    c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history
-                                        found.</div>';
-                                    return;
-                                    }
-                                    c.innerHTML = data.map(i => `
-                                    <div class="bg-black/40 rounded-lg overflow-hidden border border-white/5 mb-4">
-                                        <video src="${i.url}" class="w-full aspect-video object-cover" controls></video>
-                                        <div class="p-2 flex justify-between items-center">
-                                            <span class="text-[10px] text-gray-400 truncate w-32">${i.name}</span>
-                                            <a href="${i.url}" download class="text-gray-400 hover:text-white">
-                                                <span class="material-symbols-outlined text-sm">download</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                    `).join('');
-                                    } catch (e) {
-                                    c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.
-                                    </div>';
-                                    }
-                                    }
+                        if (s.status === "completed") {
+                            clearInterval(poll);
 
-                                    function handleFileSelect(input, labelId) {
-                                    if (input.files[0]) {
-                                    document.getElementById(labelId).innerText = input.files[0].name;
-                                    document.getElementById(labelId).classList.add("text-primary", "font-bold");
-                                    }
-                                    }
+                            // 1. Show raw Bridge
+                            document.getElementById("bridge-content").innerHTML = `
+                        <video controls autoplay loop class="w-full h-full object-contain bg-black">
+                            <source src="${s.video_url}" type="video/mp4">
+                        </video>`;
 
-                                    function resetUI() {
-                                    document.getElementById("analysis-panel").classList.remove("hidden");
-                                    document.getElementById("review-panel").classList.add("hidden");
-                                    document.getElementById("prompt-box").value = "";
-                                    currentVideoAPath = "";
-                                    currentVideoCPath = "";
+                            // UI State
+                            document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
+                            document.getElementById("bridge-border").classList.replace("border-transparent", "border-primary/50");
 
-                                    // Reset Bridge Display
-                                    document.getElementById("bridge-content").innerHTML = `
-                                    <div class="absolute inset-0 bg-cover bg-center opacity-20"
-                                        style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')">
-                                    </div>
-                                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span
-                                            class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span>
-                                        <p class="text-xs text-gray-400">Ready</p>
-                                    </div>`;
-                                    document.getElementById("bridge-card-outer").classList.replace("border-primary",
-                                    "border-primary/20");
-                                    document.getElementById("bridge-border").classList.replace("border-primary/50",
-                                    "border-transparent");
-                                    document.getElementById("merged-download-container").classList.add("hidden");
-                                    }
+                            // 2. Show Merged Button if available
+                            if (s.merged_video_url) {
+                                const dlBtn = document.getElementById("merged-download-btn");
+                                dlBtn.href = s.merged_video_url;
+                                document.getElementById("merged-download-container").classList.remove("hidden");
+                            }
 
-                                    document.getElementById("analyze-btn").addEventListener("click", async () => {
-                                    const fA = document.getElementById("video-upload-a").files[0];
-                                    const fC = document.getElementById("video-upload-c").files[0];
-                                    if (!fA || !fC) return alert("Upload both scenes.");
+                            btn.innerHTML = "Done!";
+                            setTimeout(() => {
+                                btn.disabled = false;
+                                btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`;
+                            }, 3000);
 
-                                    const btn = document.getElementById("analyze-btn");
-                                    btn.disabled = true;
-                                    btn.innerHTML = `Analyzing...`;
-
-                                    const fd = new FormData();
-                                    fd.append("video_a", fA);
-                                    fd.append("video_c", fC);
-
-                                    try {
-                                    const res = await fetch("/analyze", { method: "POST", body: fd });
-                                    const data = await res.json();
-                                    document.getElementById("prompt-box").value = data.prompt;
-                                    currentVideoAPath = data.video_a_path;
-                                    currentVideoCPath = data.video_c_path;
-
-                                    document.getElementById("analysis-panel").classList.add("hidden");
-                                    document.getElementById("review-panel").classList.remove("hidden");
-                                    } catch (e) {
-                                    alert(e.message);
-                                    } finally {
-                                    btn.disabled = false;
-                                    btn.innerHTML = `<span class="material-symbols-outlined text-lg">analytics</span>
-                                    Analyze Scenes`;
-                                    }
-                                    });
-
-                                    document.getElementById("generate-btn").addEventListener("click", async () => {
-                                    const btn = document.getElementById("generate-btn");
-                                    btn.disabled = true;
-                                    btn.innerHTML = `Generating...`;
-
-                                    try {
-                                    const res = await fetch("/generate", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                    prompt: document.getElementById("prompt-box").value,
-                                    style: document.getElementById("style-select").value,
-                                    audio_prompt: document.getElementById("audio-input").value,
-                                    negative_prompt: document.getElementById("negative-prompt").value,
-                                    guidance_scale: document.getElementById("guidance-scale").value,
-                                    motion_strength: document.getElementById("motion-strength").value,
-                                    video_a_path: currentVideoAPath,
-                                    video_c_path: currentVideoCPath
-                                    })
-                                    });
-
-                                    const data = await res.json();
-                                    const poll = setInterval(async () => {
-                                    const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
-                                    if (sRes.ok) {
-                                    const s = await sRes.json();
-
-                                    if (s.status === "completed") {
-                                    clearInterval(poll);
-
-                                    // 1. Show raw Bridge
-                                    document.getElementById("bridge-content").innerHTML = `
-                                    <video controls autoplay loop class="w-full h-full object-contain bg-black">
-                                        <source src="${s.video_url}" type="video/mp4">
-                                    </video>`;
-
-                                    // UI State
-                                    document.getElementById("bridge-card-outer").classList.replace("border-primary/20",
-                                    "border-primary");
-                                    document.getElementById("bridge-border").classList.replace("border-transparent",
-                                    "border-primary/50");
-
-                                    // 2. Show Merged Button if available
-                                    if (s.merged_video_url) {
-                                    const dlBtn = document.getElementById("merged-download-btn");
-                                    dlBtn.href = s.merged_video_url;
-                                    document.getElementById("merged-download-container").classList.remove("hidden");
-                                    }
-
-                                    btn.innerHTML = "Done!";
-                                    setTimeout(() => {
-                                    btn.disabled = false;
-                                    btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span>
-                                    Generate Video`;
-                                    }, 3000);
-
-                                    } else if (s.status === "error") {
-                                    clearInterval(poll);
-                                    alert(s.log);
-                                    btn.disabled = false;
-                                    btn.innerHTML = "Try Again";
-                                    } else {
-                                    btn.innerHTML = `${s.log} (${s.progress}%)`;
-                                    }
-                                    }
-                                    }, 1500);
-                                    } catch (e) {
-                                    alert(e.message);
-                                    btn.disabled = false;
-                                    }
-                                    });
-                                    </script>
-                                    <div id="drawer-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"
-                                        onclick="toggleDrawer(false)"></div>
-                                    <div id="gallery-drawer"
-                                        class="fixed right-0 top-0 h-full w-80 bg-surface-dark shadow-2xl z-50 transform drawer-closed flex flex-col border-l border-white/10 transition-transform duration-300">
-                                        <div
-                                            class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
-                                            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
-                                                    class="material-symbols-outlined text-primary">history</span>
-                                                History</h2>
-                                            <button onclick="toggleDrawer(false)"
-                                                class="text-gray-400 hover:text-white transition-colors"><span
-                                                    class="material-symbols-outlined">close</span></button>
-                                        </div>
-                                        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
-                                            <div class="text-center text-gray-500 mt-10">Loading...</div>
-                                        </div>
-                                    </div>
+                        } else if (s.status === "error") {
+                            clearInterval(poll);
+                            alert(s.log);
+                            btn.disabled = false;
+                            btn.innerHTML = "Try Again";
+                        } else {
+                            btn.innerHTML = `${s.log} (${s.progress}%)`;
+                        }
+                    }
+                }, 1500);
+            } catch (e) {
+                alert(e.message);
+                btn.disabled = false;
+            }
+        });
+    </script>
+    <div id="drawer-overlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleDrawer(false)"></div>
+    <div id="gallery-drawer"
+        class="fixed right-0 top-0 h-full w-80 bg-surface-dark shadow-2xl z-[100] transform drawer-closed flex flex-col border-l border-white/10 transition-transform duration-300">
+        <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
+                    class="material-symbols-outlined text-primary">history</span> History</h2>
+            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
+                    class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div class="text-center text-gray-500 mt-10">Loading history...</div>
+        </div>
+    </div>
 </body>
 
 </html>

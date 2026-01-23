@@ -1,20 +1,11 @@
-import os
-import shutil
-import requests
-import tempfile
-import logging
-import json
-import subprocess
+import os, shutil, requests, tempfile, logging, json, subprocess
 from datetime import timedelta
 from google.cloud import storage
 from config import Settings
-
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def download_to_temp(url):
-    if os.path.exists(url):
-        return url
+    if os.path.exists(url): return url
     resp = requests.get(url, stream=True)
     resp.raise_for_status()
     suffix = os.path.splitext(url.split("/")[-1])[1] or ".mp4"
@@ -23,14 +14,12 @@ def download_to_temp(url):
         return f.name
 
 def download_blob(gcs_uri, destination_file_name):
-    if not gcs_uri.startswith("gs://"):
-        raise ValueError(f"Invalid GCS URI: {gcs_uri}")
+    if not gcs_uri.startswith("gs://"): raise ValueError(f"Invalid GCS URI: {gcs_uri}")
     parts = gcs_uri[5:].split("/", 1)
     storage.Client().bucket(parts[0]).blob(parts[1]).download_to_filename(destination_file_name)
 
 def upload_to_gcs(local_path, destination_blob_name):
-    if not Settings.GCP_BUCKET_NAME:
-        return None
+    if not Settings.GCP_BUCKET_NAME: return None
     try:
         blob = storage.Client().bucket(Settings.GCP_BUCKET_NAME).blob(destination_blob_name)
         blob.upload_from_filename(local_path)
@@ -40,8 +29,7 @@ def upload_to_gcs(local_path, destination_blob_name):
         return None
 
 def get_history_from_gcs():
-    if not Settings.GCP_BUCKET_NAME:
-        return []
+    if not Settings.GCP_BUCKET_NAME: return []
     try:
         blobs = list(storage.Client().bucket(Settings.GCP_BUCKET_NAME).list_blobs())
         blobs.sort(key=lambda b: b.time_created, reverse=True)
@@ -56,45 +44,18 @@ def save_video_bytes(bytes_data, suffix=".mp4") -> str:
 
 def stitch_videos(path_a, path_b, path_c, output_path):
     logger.info("🧵 Stitching: A=%s + B=%s + C=%s -> %s", path_a, path_b, path_c, output_path)
-    
-    # FFmpeg complex filter to scale all to 1080p and concat
     cmd = [
-        "ffmpeg", "-y",
-        "-i", path_a,
-        "-i", path_b,
-        "-i", path_c,
+        "ffmpeg", "-y", "-i", path_a, "-i", path_b, "-i", path_c,
         "-filter_complex",
-        "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v0];"
-        "[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v1];"
-        "[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v2];"
-        "[v0][0:a][v1][1:a][v2][2:a]concat=n=3:v=1:a=1[v][a]",
-        "-map", "[v]",
-        "-map", "[a]",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-c:a", "aac",
-        "-b:a", "192k",
-        output_path
+        "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v0];[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v1];[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v2];[v0][0:a][v1][1:a][v2][2:a]concat=n=3:v=1:a=1[v][a]",
+        "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-c:a", "aac", "-b:a", "192k", output_path
     ]
-
-    # Fallback (video only if audio fails)
     cmd_robust = [
-        "ffmpeg", "-y",
-        "-i", path_a,
-        "-i", path_b,
-        "-i", path_c,
+        "ffmpeg", "-y", "-i", path_a, "-i", path_b, "-i", path_c,
         "-filter_complex",
-        f"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v0];"
-        f"[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v1];"
-        f"[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v2];"
-        f"[v0][v1][v2]concat=n=3:v=1:a=0[v]",
-        "-map", "[v]",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        output_path
+        f"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v0];[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v1];[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v2];[v0][v1][v2]concat=n=3:v=1:a=0[v]",
+        "-map", "[v]", "-c:v", "libx264", "-preset", "fast", output_path
     ]
-
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError:
@@ -105,41 +66,26 @@ def stitch_videos(path_a, path_b, path_c, output_path):
     return output_path
 
 def update_job_status(job_id, status, progress, log=None, video_url=None, merged_video_url=None):
-    """Updates JSON status with SEPARATE bridge and merged URLs."""
-    if not job_id:
-        return
-        
+    if not job_id: return
     os.makedirs("outputs", exist_ok=True)
-
     final_url = video_url
     final_merged_url = merged_video_url
     
-    # Move Bridge
     if video_url and os.path.exists(video_url) and status == "completed":
         final_filename = f"{job_id}_bridge.mp4"
         dest = os.path.join("outputs", final_filename)
-        # Check against absolute paths
         if os.path.abspath(video_url) != os.path.abspath(dest):
-             shutil.move(video_url, dest)
+            shutil.move(video_url, dest)
         final_url = f"/outputs/{final_filename}"
         if Settings.GCP_BUCKET_NAME:
             upload_to_gcs(dest, final_filename)
             
-    # Move Merged
     if merged_video_url and os.path.exists(merged_video_url) and status == "completed":
         merged_filename = f"{job_id}_merged.mp4"
         merged_dest = os.path.join("outputs", merged_filename)
         if os.path.abspath(merged_video_url) != os.path.abspath(merged_dest):
-             shutil.move(merged_video_url, merged_dest)
+            shutil.move(merged_video_url, merged_dest)
         final_merged_url = f"/outputs/{merged_filename}"
-        if Settings.GCP_BUCKET_NAME:
-            upload_to_gcs(merged_dest, merged_filename)
-
+        
     with open(f"outputs/{job_id}.json", "w") as f:
-        json.dump({
-            "status": status, 
-            "progress": progress, 
-            "log": log, 
-            "video_url": final_url, 
-            "merged_video_url": final_merged_url
-        }, f)
+        json.dump({"status": status, "progress": progress, "log": log, "video_url": final_url, "merged_video_url": final_merged_url}, f)
