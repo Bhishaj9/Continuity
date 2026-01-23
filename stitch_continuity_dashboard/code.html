@@ -2,128 +2,118 @@
 <html class="dark" lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Continuity v2.4</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Continuity: Director's Suite</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
+            darkMode: "class",
             theme: {
                 extend: {
-                    colors: {
-                        primary: '#7f0df2',
-                        'surface-dark': '#0a0a0a',
-                        'border-dark': '#2a2a2a'
-                    },
-                    fontFamily: {
-                        display: ['Inter', 'sans-serif'],
-                    },
-                    boxShadow: {
-                        'neon': '0 0 20px rgba(127, 13, 242, 0.3)',
-                    }
-                }
-            }
+                    colors: { "primary": "#7f0df2", "background-dark": "#0a060f", "surface-dark": "#1a1221", "border-dark": "#362445" },
+                    fontFamily: { "display": ["Space Grotesk", "sans-serif"], "body": ["Noto Sans", "sans-serif"] },
+                    boxShadow: { "neon": "0 0 20px rgba(127, 13, 242, 0.4)" }
+                },
+            },
         }
     </script>
-    <!-- Google Fonts & Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" />
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #000;
-            color: #fff;
+            background-color: #0a060f;
         }
 
         .glass-panel {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(26, 18, 33, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .footer-mask {
+            background: linear-gradient(to top, #0a060f 20%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .force-clip {
+            -webkit-mask-image: -webkit-radial-gradient(white, black);
+            mask-image: radial-gradient(white, black);
+            transform: translateZ(0);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        #gallery-drawer {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .drawer-open {
-            transform: translateX(0);
+            transform: translateX(0%);
         }
 
         .drawer-closed {
             transform: translateX(100%);
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
         }
 
-        ::-webkit-scrollbar-track {
-            background: #000;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
             background: #7f0df2;
+            margin-top: -6px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(127, 13, 242, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #362445;
+            border-radius: 2px;
         }
     </style>
 </head>
 
-<body class="bg-black min-h-screen flex flex-col items-center relative overflow-x-hidden selection:bg-primary/30">
-
-    <!-- HEADER -->
-    <header
-        class="w-full fixed top-0 z-[60] bg-black/50 backdrop-blur-md border-b border-white/5 h-16 flex items-center justify-between px-6 lg:px-12">
-        <div class="flex items-center gap-3">
-            <div
-                class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
-                <span class="material-symbols-outlined">movie_filter</span>
-            </div>
-            <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
-                    class="opacity-50 font-normal text-sm ml-2">v2.4</span></h1>
+<body
+    class="relative flex h-screen w-full flex-col bg-background-dark font-body text-white overflow-hidden selection:bg-primary selection:text-white">
+    <div class="flex items-center gap-3">
+        <div
+            class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
+            <span class="material-symbols-outlined">movie_filter</span>
         </div>
-        <div class="flex items-center gap-3">
-            <button onclick="toggleDrawer(true)"
-                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
-                <span class="material-symbols-outlined text-lg">history</span>
-                Gallery
-            </button>
-            <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
-                <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span class="text-xs font-bold text-green-400 tracking-wide uppercase">System Online</span>
-            </div>
-        </div>
-    </header>
-
-    <!-- GALLERY DRAWER -->
-    <div id="drawer-overlay"
-        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden transition-opacity duration-300"></div>
-    <div id="gallery-drawer"
-        class="fixed top-0 right-0 h-full w-full max-w-md bg-[#0a0a0a] border-l border-white/10 z-[70] shadow-2xl drawer-closed transition-transform duration-300 ease-in-out flex flex-col">
-        <div class="p-6 border-b border-white/5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">history</span>
-                Creation History
-            </h2>
-            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
-            <div class="text-center text-gray-500 mt-10">Loading history...</div>
+        <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
+                class="opacity-50 font-normal text-sm ml-2">v2.5 (Auteur)</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+        <button onclick="toggleDrawer(true)"
+            class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
+            <span class="material-symbols-outlined text-lg">history</span> Gallery
+        </button>
+        <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+            <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span class="text-xs font-bold text-green-400 tracking-wide uppercase">System Online</span>
         </div>
     </div>
-
-    <!-- MAIN CONTENT -->
     <div class="w-full max-w-6xl flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-20">
-        <!-- Scene A -->
         <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
-            <div class="flex justify-between px-1">
-                <span class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span>
-            </div>
+            <div class="flex justify-between px-1"><span
+                    class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span></div>
             <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
                 onclick="document.getElementById('video-upload-a').click()">
                 <div
@@ -136,14 +126,10 @@
                     onchange="handleFileSelect(this, 'label-a')">
             </div>
         </div>
-
-        <!-- Bridge -->
         <div class="flex flex-col gap-3 flex-[1.5] max-w-[500px] relative z-20">
-            <div class="flex justify-center px-1">
-                <span class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
-                    Bridge</span>
-            </div>
-
+            <div class="flex justify-center px-1"><span
+                    class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
+                    Bridge</span></div>
             <div id="bridge-card-outer"
                 class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
                 <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
@@ -154,8 +140,7 @@
                         <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
                             <div
                                 class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
-                                <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
-                            </div>
+                                <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span></div>
                             <p class="text-sm text-gray-300">Ready to bridge the gap</p>
                         </div>
                     </div>
@@ -164,12 +149,9 @@
                 </div>
             </div>
         </div>
-
-        <!-- Scene C -->
         <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
-            <div class="flex justify-end px-1">
-                <span class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span>
-            </div>
+            <div class="flex justify-end px-1"><span
+                    class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span></div>
             <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
                 onclick="document.getElementById('video-upload-c').click()">
                 <div
@@ -183,327 +165,199 @@
             </div>
         </div>
     </div>
-
-    <!-- CONTROLS -->
-    <div class="fixed bottom-10 z-40 flex flex-col gap-4 w-full max-w-xl px-6">
-
-        <!-- Analysis Panel -->
-        <div id="analysis-panel"
-            class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
-            <div class="flex flex-col">
-                <span class="text-sm font-bold text-white">Continuity Engine</span>
-                <span class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="toggleDrawer(true)"
-                    class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10">
-                    <span class="material-symbols-outlined text-lg">history</span>
-                </button>
-                <button id="analyze-btn"
-                    class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg">
-                    <span class="material-symbols-outlined text-lg">analytics</span>
-                    Analyze Scenes
-                </button>
-            </div>
-        </div>
-
-        <!-- Review Panel -->
-        <div id="review-panel"
-            class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300">
-            <div class="flex items-center justify-between border-b border-white/10 pb-3">
-                <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">movie_edit</span>
-                    Director's Configuration
-                </h3>
-                <div class="flex gap-2">
-                    <button onclick="toggleDrawer(true)"
-                        class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1">
-                        <span class="material-symbols-outlined text-sm">history</span> History
-                    </button>
-                    <span class="text-white/10">|</span>
-                    <button onclick="resetUI()"
-                        class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
-                </div>
-            </div>
-
-            <div>
-                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                    Direction</label>
-                <textarea id="prompt-box" rows="2"
-                    class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                        Style</label>
-                    <select id="style-select" onchange="savePreference('style', this.value)"
-                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
-                        <option value="Cinematic">Cinematic</option>
-                        <option value="Anime">Anime</option>
-                        <option value="Cyberpunk">Cyberpunk</option>
-                        <option value="VHS">VHS Glitch</option>
-                        <option value="Noir">Noir</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
-                        Mood</label>
-                    <select id="audio-input" onchange="savePreference('audio', this.value)"
-                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
-                        <option value="Cinematic orchestral score, epic, dramatic, high fidelity">Cinematic (Default)
-                        </option>
-                        <option value="Industrial synthwave, futuristic, neon hum, electronic">Cyberpunk / Sci-Fi
-                        </option>
-                        <option value="Nature sounds, wind, birds, flowing water, organic">Nature / Organic</option>
-                        <option value="Tense atmosphere, suspenseful drone, horror, scary">Horror / Suspense</option>
-                        <option value="Lo-fi hip hop, chill, relaxing, soft beats">Lo-fi / Chill</option>
-                        <option value="High energy, rock, intense, fast paced">Action / Intense</option>
-                    </select>
-                </div>
-            </div>
-
-            <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-2">
-                <span class="material-symbols-outlined">auto_fix_high</span>
-                Generate Video
-            </button>
+    <div class="p-6 border-b border-white/5 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
+                class="material-symbols-outlined text-primary">history</span> Creation History</h2>
+        <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
+                class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="text-center text-gray-500 mt-10">Loading history...</div>
+    </div>
+    <div id="analysis-panel"
+        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
+        <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
+                class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
+        <div class="flex gap-2">
+            <button onclick="toggleDrawer(true)"
+                class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10"><span
+                    class="material-symbols-outlined text-lg">history</span></button>
+            <button id="analyze-btn"
+                class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg"><span
+                    class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes</button>
         </div>
     </div>
-
+    <div id="review-panel"
+        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
+                    class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
+            <div class="flex gap-2">
+                <button onclick="toggleDrawer(true)"
+                    class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1"><span
+                        class="material-symbols-outlined text-sm">history</span> History</button>
+                <span class="text-white/10">|</span>
+                <button onclick="resetUI()"
+                    class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
+            </div>
+        </div>
+        <div>
+            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
+                Direction</label>
+            <textarea id="prompt-box" rows="2"
+                class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
+                    Style</label>
+                <select id="style-select" onchange="savePreference('style', this.value)"
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                    <option value="Cinematic">Cinematic</option>
+                    <option value="Anime">Anime</option>
+                    <option value="Cyberpunk">Cyberpunk</option>
+                    <option value="VHS">VHS Glitch</option>
+                    <option value="Noir">Noir</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
+                    Mood</label>
+                <select id="audio-input" onchange="savePreference('audio', this.value)"
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                    <option value="Cinematic orchestral score">Cinematic</option>
+                    <option value="Industrial synthwave">Cyberpunk</option>
+                    <option value="Nature sounds">Nature</option>
+                    <option value="Tense atmosphere">Horror</option>
+                    <option value="High energy rock">Action</option>
+                </select>
+            </div>
+        </div>
+        <div class="border-t border-white/10 pt-3">
+            <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
+                class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full">
+                <span class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
+                    class="material-symbols-outlined text-sm ml-auto">expand_more</span>
+            </button>
+            <div id="advanced-settings"
+                class="hidden pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                <div class="col-span-1 md:col-span-2">
+                    <label class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt (Exclude)</label>
+                    <input id="negative-prompt" type="text" placeholder="text, blurry, watermark, distorted"
+                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-red-500/50 outline-none mt-1">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label
+                            class="text-[10px] text-gray-500 uppercase font-bold">Guidance Scale</label><span
+                            id="guidance-val" class="text-[10px] text-primary">5.0</span></div>
+                    <input id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5" class="w-full mt-2"
+                        oninput="document.getElementById('guidance-val').innerText = this.value">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label
+                            class="text-[10px] text-gray-500 uppercase font-bold">Motion Strength</label><span
+                            id="motion-val" class="text-[10px] text-primary">5</span></div>
+                    <input id="motion-strength" type="range" min="1" max="10" value="5" class="w-full mt-2"
+                        oninput="document.getElementById('motion-val').innerText = this.value">
+                </div>
+            </div>
+        </div>
+        <button id="generate-btn"
+            class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1">
+            <span class="material-symbols-outlined">auto_fix_high</span> Generate Video
+        </button>
+    </div>
     <script>
-        // --- SESSION PERSISTENCE ---
-        function savePreference(key, value) {
-            localStorage.setItem('continuity_' + key, value);
-        }
-
+        function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
         function loadPreferences() {
-            const savedStyle = localStorage.getItem('continuity_style');
-            const savedAudio = localStorage.getItem('continuity_audio');
-
-            if (savedStyle) document.getElementById('style-select').value = savedStyle;
-            if (savedAudio) document.getElementById('audio-input').value = savedAudio;
+            const s = localStorage.getItem('continuity_style'); const a = localStorage.getItem('continuity_audio');
+            if (s) document.getElementById('style-select').value = s;
+            if (a) document.getElementById('audio-input').value = a;
         }
-
-        // Load prefs on init
         loadPreferences();
-
-        // --- HISTORY GALLERY LOGIC ---
         const drawer = document.getElementById('gallery-drawer');
         const overlay = document.getElementById('drawer-overlay');
-
         function toggleDrawer(show) {
-            if (show) {
-                drawer.classList.remove('drawer-closed');
-                drawer.classList.add('drawer-open');
-                overlay.classList.remove('hidden');
-                fetchHistory();
-            } else {
-                drawer.classList.remove('drawer-open');
-                drawer.classList.add('drawer-closed');
-                overlay.classList.add('hidden');
-            }
+            if (show) { drawer.classList.replace('drawer-closed', 'drawer-open'); overlay.classList.remove('hidden'); fetchHistory(); }
+            else { drawer.classList.replace('drawer-open', 'drawer-closed'); overlay.classList.add('hidden'); }
         }
-
         async function fetchHistory() {
-            const container = document.getElementById('gallery-content');
-            container.innerHTML = '<div class="text-center text-gray-500 mt-10"><span class="material-symbols-outlined animate-spin text-2xl">progress_activity</span></div>';
-
+            const c = document.getElementById('gallery-content'); c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
             try {
-                const res = await fetch('/history');
-                const data = await res.json();
-
-                if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="text-center text-gray-500 mt-10 text-sm">No history found. Start creating!</div>';
-                    return;
-                }
-
-                container.innerHTML = data.map(item => `
-                <div class="bg-black/40 rounded-xl overflow-hidden border border-white/5 hover:border-primary/50 transition-colors group">
-                    <div class="aspect-video relative bg-black">
-                        <video src="${item.url}" class="w-full h-full object-cover" controls preload="metadata"></video>
-                    </div>
-                    <div class="p-3 flex items-center justify-between">
-                        <div>
-                            <p class="text-xs text-gray-400 font-mono truncate w-40">${item.name}</p>
-                            <p class="text-[10px] text-gray-600">${new Date(item.created).toLocaleDateString()}</p>
-                        </div>
-                        <a href="${item.url}" download target="_blank" class="p-2 bg-white/5 hover:bg-primary hover:text-white rounded-lg transition-colors" title="Download">
-                            <span class="material-symbols-outlined text-sm">download</span>
-                        </a>
-                    </div>
-                </div>
-            `).join('');
-
-            } catch (e) {
-                container.innerHTML = '<div class="text-center text-red-400 mt-10 text-sm">Failed to load history.</div>';
-                console.error(e);
-            }
+                const res = await fetch('/history'); const data = await res.json();
+                if (!data || !data.length) { c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history found.</div>'; return; }
+                c.innerHTML = data.map(item => `
+            <div class="bg-black/40 rounded-lg overflow-hidden border border-white/5 hover:border-primary/50 transition-colors mb-4">
+                <video src="${item.url}" class="w-full aspect-video object-cover" controls></video>
+                <div class="p-2 flex justify-between items-center"><span class="text-[10px] text-gray-400 truncate w-32">${item.name}</span><a href="${item.url}" download class="text-gray-400 hover:text-white"><span class="material-symbols-outlined text-sm">download</span></a></div>
+            </div>`).join('');
+            } catch (e) { c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.</div>'; }
         }
-
-        // --- CORE LOGIC ---
-        let currentVideoAPath = "";
-        let currentVideoCPath = "";
-
-        function handleFileSelect(input, labelId) {
-            if (input.files && input.files[0]) {
-                const label = document.getElementById(labelId);
-                label.innerText = input.files[0].name;
-                label.classList.add("text-primary", "font-bold");
-            }
-        }
-
+        function handleFileSelect(input, labelId) { if (input.files[0]) { document.getElementById(labelId).innerText = input.files[0].name; document.getElementById(labelId).classList.add("text-primary", "font-bold"); } }
         function resetUI() {
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
-
-            // Reset Bridge
-            document.getElementById("bridge-content").innerHTML = `
-            <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
-            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
-                <div class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
-                    <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
-                </div>
-                <p class="text-sm text-gray-300">Ready to bridge the gap</p>
-            </div>
-      `;
-            // Reset Outer Glow
-            const outer = document.getElementById("bridge-card-outer");
-            outer.classList.remove("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
-            outer.classList.add("border-primary/20");
-
-            // Reset Inner Border
-            const border = document.getElementById("bridge-border");
-            border.classList.remove("border-primary/50");
-            border.classList.add("border-transparent");
-
-            currentVideoAPath = "";
-            currentVideoCPath = "";
+            currentVideoAPath = ""; currentVideoCPath = "";
+            const b = document.getElementById("bridge-content");
+            b.innerHTML = `<div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span><p class="text-xs text-gray-400">Ready</p></div>`;
+            document.getElementById("bridge-card-outer").classList.replace("border-primary", "border-primary/20");
+            document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
         }
-
-        // --- ANALYZE LOGIC ---
         document.getElementById("analyze-btn").addEventListener("click", async () => {
-            const fileA = document.getElementById("video-upload-a").files[0];
-            const fileC = document.getElementById("video-upload-c").files[0];
-            const btn = document.getElementById("analyze-btn");
-
-            if (!fileA || !fileC) {
-                alert("⚠️ Please upload both Scene A and Scene C first.");
-                return;
-            }
-
-            const originalText = btn.innerHTML;
-            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-lg">progress_activity</span> Analyzing...`;
-            btn.disabled = true;
-
-            const formData = new FormData();
-            formData.append("video_a", fileA);
-            formData.append("video_c", fileC);
-
+            const fA = document.getElementById("video-upload-a").files[0]; const fC = document.getElementById("video-upload-c").files[0];
+            if (!fA || !fC) return alert("Upload both scenes.");
+            const btn = document.getElementById("analyze-btn"); btn.disabled = true; btn.innerHTML = `Analyzing...`;
+            const fd = new FormData(); fd.append("video_a", fA); fd.append("video_c", fC);
             try {
-                const res = await fetch("/analyze", { method: "POST", body: formData });
-                if (!res.ok) throw new Error(await res.text());
-
+                const res = await fetch("/analyze", { method: "POST", body: fd });
                 const data = await res.json();
-
                 document.getElementById("prompt-box").value = data.prompt;
-                currentVideoAPath = data.video_a_path;
-                currentVideoCPath = data.video_c_path;
-
+                currentVideoAPath = data.video_a_path; currentVideoCPath = data.video_c_path;
                 document.getElementById("analysis-panel").classList.add("hidden");
                 document.getElementById("review-panel").classList.remove("hidden");
-
-            } catch (err) {
-                alert("Analysis Error: " + err.message);
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
+            } catch (e) { alert(e.message); } finally { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes`; }
         });
-
-        // --- GENERATE LOGIC ---
         document.getElementById("generate-btn").addEventListener("click", async () => {
             const btn = document.getElementById("generate-btn");
             const prompt = document.getElementById("prompt-box").value;
+            const negPrompt = document.getElementById("negative-prompt").value;
+            const guidance = document.getElementById("guidance-scale").value;
             const style = document.getElementById("style-select").value;
             const audio = document.getElementById("audio-input").value;
-
-            const originalText = btn.innerHTML;
-            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-lg">progress_activity</span> Generating (this takes ~60s)...`;
-            btn.disabled = true;
-            btn.classList.add("opacity-50");
-
+            btn.disabled = true; btn.innerHTML = `Generating...`;
             try {
                 const res = await fetch("/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         prompt: prompt,
                         style: style,
                         audio_prompt: audio,
+                        negative_prompt: negPrompt,
+                        guidance_scale: guidance,
                         video_a_path: currentVideoAPath,
                         video_c_path: currentVideoCPath
                     })
                 });
-
-                if (!res.ok) throw new Error(await res.text());
-
                 const data = await res.json();
-                const jobId = data.job_id;
-
-                // Poll Status
                 const poll = setInterval(async () => {
-                    const statusRes = await fetch(`/status/${jobId}?t=${Date.now()}`);
-                    if (statusRes.ok) {
-                        const status = await statusRes.json();
-
-                        if (status.status === "completed") {
+                    const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
+                    if (sRes.ok) {
+                        const s = await sRes.json();
+                        if (s.status === "completed") {
                             clearInterval(poll);
-
-                            // Render Video (Object-Contain prevents zoom overlap)
-                            const bridgeContent = document.getElementById("bridge-content");
-                            bridgeContent.innerHTML = `
-                            <video controls autoplay loop class="w-full h-full object-contain bg-black">
-                                <source src="${status.video_url}" type="video/mp4">
-                            </video>
-                        `;
-
-                            // Activate Outer Glow
-                            const outer = document.getElementById("bridge-card-outer");
-                            outer.classList.remove("border-primary/20");
-                            outer.classList.add("border-primary", "shadow-[0_0_30px_rgba(127,13,242,0.6)]");
-
-                            // Activate Inner Overlay Border
-                            const border = document.getElementById("bridge-border");
-                            border.classList.remove("border-transparent");
-                            border.classList.add("border-primary/50");
-
-                            btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Done!`;
-                            setTimeout(() => {
-                                btn.innerHTML = originalText;
-                                btn.disabled = false;
-                                btn.classList.remove("opacity-50");
-                            }, 3000);
-
-                        } else if (status.status === "error") {
-                            clearInterval(poll);
-                            alert("Generation Error: " + status.log);
-                            btn.innerHTML = originalText;
-                            btn.disabled = false;
-                            btn.classList.remove("opacity-50");
+                            document.getElementById("bridge-content").innerHTML = `<video controls autoplay loop class="w-full h-full object-contain bg-black"><source src="${s.video_url}" type="video/mp4"></video>`;
+                            document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
+                            document.getElementById("bridge-border").classList.replace("border-transparent", "border-primary/50");
+                            btn.innerHTML = "Done!"; setTimeout(() => { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`; }, 3000);
+                        } else if (s.status === "error") {
+                            clearInterval(poll); alert(s.log); btn.disabled = false; btn.innerHTML = "Try Again";
                         } else {
-                            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-lg">progress_activity</span> ${status.log} (${status.progress}%)`;
+                            btn.innerHTML = `${s.log} (${s.progress}%)`;
                         }
                     }
                 }, 1500);
-
-            } catch (err) {
-                alert("Request Error: " + err.message);
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                btn.classList.remove("opacity-50");
-            }
+            } catch (e) { alert(e.message); btn.disabled = false; }
         });
     </script>
 </body>

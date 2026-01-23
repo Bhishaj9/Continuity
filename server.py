@@ -37,27 +37,26 @@ def analyze_endpoint(
         request_id = str(uuid.uuid4())
         ext_a = os.path.splitext(video_a.filename)[1] or ".mp4"
         ext_c = os.path.splitext(video_c.filename)[1] or ".mp4"
-
+        
         path_a = os.path.join(OUTPUT_DIR, f"{request_id}_a{ext_a}")
         path_c = os.path.join(OUTPUT_DIR, f"{request_id}_c{ext_c}")
-
+        
         with open(path_a, "wb") as buffer:
             shutil.copyfileobj(video_a.file, buffer)
         with open(path_c, "wb") as buffer:
             shutil.copyfileobj(video_c.file, buffer)
-        
+            
         result = analyze_only(os.path.abspath(path_a), os.path.abspath(path_c), job_id=request_id)
         
         if result.get("status") == "error":
-             raise HTTPException(status_code=500, detail=result.get("detail"))
-         
+            raise HTTPException(status_code=500, detail=result.get("detail"))
+            
         return {
             "prompt": result["prompt"],
             "video_a_path": os.path.abspath(path_a),
             "video_c_path": os.path.abspath(path_c)
         }
     except Exception as e:
-        print(f"Server Error (Analyze): {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate")
@@ -65,27 +64,26 @@ def generate_endpoint(
     background_tasks: BackgroundTasks,
     prompt: str = Body(...),
     style: str = Body("Cinematic"),
-    audio_prompt: str = Body("Cinematic ambient sound"), # <--- NEW: Capture Audio Mood
+    audio_prompt: str = Body("Cinematic ambient sound"),
+    negative_prompt: str = Body(""),
+    guidance_scale: float = Body(5.0),
     video_a_path: str = Body(...),
     video_c_path: str = Body(...)
 ):
     try:
         if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
-            raise HTTPException(status_code=400, detail="Video files not found on server.")
-
+            raise HTTPException(status_code=400, detail="Video files not found.")
+            
         job_id = str(uuid.uuid4())
-        
         status_file = os.path.join(OUTPUT_DIR, f"{job_id}.json")
+        
         with open(status_file, "w") as f:
             json.dump({"status": "queued", "progress": 0, "log": "Job queued..."}, f)
             
-        # Pass audio_prompt to the agent function
-        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt)
+        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale)
         
         return {"job_id": job_id}
-        
     except Exception as e:
-        print(f"Server Error (Generate): {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/status/{job_id}")
@@ -93,11 +91,10 @@ def get_status(job_id: str):
     file_path = os.path.join(OUTPUT_DIR, f"{job_id}.json")
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Job not found")
-
+        
     try:
         with open(file_path, "r") as f:
-            data = json.load(f)
-        return data
+            return json.load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading status: {e}")
 
