@@ -8,6 +8,7 @@ from utils import get_history_from_gcs
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
 os.makedirs("outputs", exist_ok=True)
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
@@ -42,19 +43,26 @@ def read_root():
 def analyze_endpoint(video_a: UploadFile = File(...), video_c: UploadFile = File(...)):
     try:
         rid = str(uuid.uuid4())
-        ext_a = os.path.splitext(video_a.filename)[1] or ".mp4"
-        ext_c = os.path.splitext(video_c.filename)[1] or ".mp4"
-        pa = os.path.join("outputs", f"{rid}_a{ext_a}")
-        pc = os.path.join("outputs", f"{rid}_c{ext_c}")
+        pa = os.path.join("outputs", f"{rid}_a.mp4")
+        pc = os.path.join("outputs", f"{rid}_c.mp4")
+        
         with open(pa, "wb") as b:
             shutil.copyfileobj(video_a.file, b)
         with open(pc, "wb") as b:
             shutil.copyfileobj(video_c.file, b)
-        
+            
         res = analyze_only(os.path.abspath(pa), os.path.abspath(pc), job_id=rid)
+        
         if res.get("status") == "error":
             raise HTTPException(500, res.get("detail"))
-        return {"prompt": res["prompt"], "video_a_path": os.path.abspath(pa), "video_c_path": os.path.abspath(pc)}
+            
+        return {
+            "analysis_a": res.get("analysis_a"),
+            "analysis_c": res.get("analysis_c"),
+            "prompt": res["prompt"],
+            "video_a_path": os.path.abspath(pa),
+            "video_c_path": os.path.abspath(pc)
+        }
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -71,9 +79,11 @@ async def generate_endpoint(
 ):
     if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
         raise HTTPException(400, "Videos not found.")
+        
     job_id = str(uuid.uuid4())
     with open(f"outputs/{job_id}.json", "w") as f:
         json.dump({"status": "queued", "progress": 0, "log": "Queued..."}, f)
+        
     await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
     return {"job_id": job_id}
 

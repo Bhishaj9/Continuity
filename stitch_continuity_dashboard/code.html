@@ -113,7 +113,8 @@
     </header>
 
     <!-- Main Stage: Scrollable Content -->
-    <main class="flex-1 w-full overflow-y-auto relative flex flex-col items-center pt-8 pb-32">
+    <!-- FIX: Increased padding bottom to pb-[32rem] (~512px) to clear floating controls -->
+    <main class="flex-1 w-full overflow-y-auto relative flex flex-col items-center pt-8 pb-[32rem]">
         <div class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 px-4">
 
             <!-- SCENE A -->
@@ -224,8 +225,23 @@
                         class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
                 </div>
             </div>
+
+            <!-- NEW: Structured Analysis Display -->
+            <div class="grid grid-cols-2 gap-4 mb-2">
+                <div class="bg-white/5 p-2 rounded-lg border border-white/10">
+                    <span class="text-[9px] font-bold text-primary uppercase">Scene A Analysis</span>
+                    <p id="analysis-a-text" class="text-[10px] text-gray-300 h-10 overflow-y-auto mt-1 leading-tight">
+                        Waiting for analysis...</p>
+                </div>
+                <div class="bg-white/5 p-2 rounded-lg border border-white/10">
+                    <span class="text-[9px] font-bold text-primary uppercase">Scene C Analysis</span>
+                    <p id="analysis-c-text" class="text-[10px] text-gray-300 h-10 overflow-y-auto mt-1 leading-tight">
+                        Waiting for analysis...</p>
+                </div>
+            </div>
+
             <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                    Direction</label><textarea id="prompt-box" rows="4"
+                    Direction (Bridge B)</label><textarea id="prompt-box" rows="3"
                     class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -370,6 +386,11 @@
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
+
+            // Reset Analysis Fields
+            document.getElementById("analysis-a-text").innerText = "Waiting for analysis...";
+            document.getElementById("analysis-c-text").innerText = "Waiting for analysis...";
+
             currentVideoAPath = "";
             currentVideoCPath = "";
 
@@ -393,6 +414,11 @@
                 const res = await fetch("/analyze", { method: "POST", body: fd });
                 const data = await res.json();
                 document.getElementById("prompt-box").value = data.prompt;
+
+                // Populate Analysis Fields
+                document.getElementById("analysis-a-text").innerText = data.analysis_a || "No details found.";
+                document.getElementById("analysis-c-text").innerText = data.analysis_c || "No details found.";
+
                 currentVideoAPath = data.video_a_path;
                 currentVideoCPath = data.video_c_path;
                 document.getElementById("analysis-panel").classList.add("hidden");
