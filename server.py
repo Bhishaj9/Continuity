@@ -67,6 +67,7 @@ def generate_endpoint(
     audio_prompt: str = Body("Cinematic ambient sound"),
     negative_prompt: str = Body(""),
     guidance_scale: float = Body(5.0),
+    motion_strength: int = Body(5),
     video_a_path: str = Body(...),
     video_c_path: str = Body(...)
 ):
@@ -80,7 +81,8 @@ def generate_endpoint(
         with open(status_file, "w") as f:
             json.dump({"status": "queued", "progress": 0, "log": "Job queued..."}, f)
             
-        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale)
+        # Pass new params to agent
+        background_tasks.add_task(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
         
         return {"job_id": job_id}
     except Exception as e:

@@ -38,11 +38,6 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        .footer-mask {
-            background: linear-gradient(to top, #0a060f 20%, transparent 100%);
-            pointer-events: none;
-        }
-
         .force-clip {
             -webkit-mask-image: -webkit-radial-gradient(white, black);
             mask-image: radial-gradient(white, black);
@@ -53,6 +48,7 @@
 
         #gallery-drawer {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
         }
 
         .drawer-open {
@@ -63,7 +59,6 @@
             transform: translateX(100%);
         }
 
-        /* Custom Range Slider */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -87,186 +82,238 @@
             background: #362445;
             border-radius: 2px;
         }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(127, 13, 242, 0.5);
+            border-radius: 2px;
+        }
     </style>
 </head>
 
 <body
-    class="relative flex h-screen w-full flex-col bg-background-dark font-body text-white overflow-hidden selection:bg-primary selection:text-white">
-    <div class="flex items-center gap-3">
-        <div
-            class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
-            <span class="material-symbols-outlined">movie_filter</span>
+    class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white">
+
+    <!-- HEADER (Fixed height, no shrink) -->
+    <div
+        class="h-16 shrink-0 flex items-center justify-between px-6 border-b border-border-dark bg-background-dark/80 backdrop-blur-md z-40 relative">
+        <div class="flex items-center gap-3">
+            <div
+                class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
+                <span class="material-symbols-outlined">movie_filter</span>
+            </div>
+            <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
+                    class="opacity-50 font-normal text-sm ml-2">v2.5 (Auteur)</span></h1>
         </div>
-        <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
-                class="opacity-50 font-normal text-sm ml-2">v2.5 (Auteur)</span></h1>
-    </div>
-    <div class="flex items-center gap-3">
-        <button onclick="toggleDrawer(true)"
-            class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
-            <span class="material-symbols-outlined text-lg">history</span> Gallery
-        </button>
-        <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
-            <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span class="text-xs font-bold text-green-400 tracking-wide uppercase">System Online</span>
-        </div>
-    </div>
-    <div class="w-full max-w-6xl flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-20">
-        <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
-            <div class="flex justify-between px-1"><span
-                    class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span></div>
-            <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
-                onclick="document.getElementById('video-upload-a').click()">
-                <div
-                    class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
-                    <span class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
-                </div>
-                <p id="label-a" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload Start
-                    Clip</p>
-                <input type="file" id="video-upload-a" accept="video/*" class="hidden"
-                    onchange="handleFileSelect(this, 'label-a')">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleDrawer(true)"
+                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
+                <span class="material-symbols-outlined text-lg">history</span> Gallery
+            </button>
+            <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-xs font-bold text-green-400 tracking-wide uppercase">System Online</span>
             </div>
         </div>
-        <div class="flex flex-col gap-3 flex-[1.5] max-w-[500px] relative z-20">
-            <div class="flex justify-center px-1"><span
-                    class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
-                    Bridge</span></div>
-            <div id="bridge-card-outer"
-                class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
-                <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
-                    <div id="bridge-content" class="w-full h-full">
-                        <div
-                            class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
-                        </div>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+    </div>
+
+    <!-- GALLERY DRAWER (Fixed absolute overlay) -->
+    <div id="drawer-overlay"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden transition-opacity duration-300 pointer-events-auto"
+        onclick="toggleDrawer(false)"></div>
+    <div id="gallery-drawer"
+        class="fixed top-0 right-0 h-full w-full max-w-md bg-surface-dark border-l border-border-dark shadow-2xl drawer-closed flex flex-col pointer-events-auto">
+        <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
+                    class="material-symbols-outlined text-primary">history</span> History</h2>
+            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
+                    class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div class="text-center text-gray-500 mt-10">Loading...</div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT (Flex grow, scrollable) -->
+    <div class="flex-1 overflow-y-auto w-full relative z-0 flex flex-col items-center pt-8 pb-32 px-4">
+        <div class="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 lg:gap-12">
+
+            <!-- Scene A -->
+            <div class="flex flex-col gap-3 flex-1 w-full max-w-[320px] group">
+                <div class="flex justify-between px-1"><span
+                        class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span>
+                </div>
+                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
+                    onclick="document.getElementById('video-upload-a').click()">
+                    <div
+                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
+                        <span
+                            class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
+                    </div>
+                    <p id="label-a" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload
+                        Start Clip</p>
+                    <input type="file" id="video-upload-a" accept="video/*" class="hidden"
+                        onchange="handleFileSelect(this, 'label-a')">
+                </div>
+            </div>
+
+            <!-- Bridge -->
+            <div class="flex flex-col gap-3 flex-[1.5] w-full max-w-[500px] relative z-20">
+                <div class="flex justify-center px-1"><span
+                        class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
+                        Bridge</span></div>
+                <div id="bridge-card-outer"
+                    class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
+                    <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
+                        <div id="bridge-content" class="w-full h-full">
                             <div
-                                class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
-                                <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span></div>
-                            <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                                class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
+                            </div>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                                <div
+                                    class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
+                                    <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
+                                </div>
+                                <p class="text-sm text-gray-300">Ready to bridge the gap</p>
+                            </div>
+                        </div>
+                        <div id="bridge-border"
+                            class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30">
                         </div>
                     </div>
-                    <div id="bridge-border"
-                        class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30"></div>
+                </div>
+            </div>
+
+            <!-- Scene C -->
+            <div class="flex flex-col gap-3 flex-1 w-full max-w-[320px] group">
+                <div class="flex justify-end px-1"><span
+                        class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span></div>
+                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
+                    onclick="document.getElementById('video-upload-c').click()">
+                    <div
+                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
+                        <span
+                            class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
+                    </div>
+                    <p id="label-c" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload End
+                        Clip</p>
+                    <input type="file" id="video-upload-c" accept="video/*" class="hidden"
+                        onchange="handleFileSelect(this, 'label-c')">
                 </div>
             </div>
         </div>
-        <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
-            <div class="flex justify-end px-1"><span
-                    class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span></div>
-            <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
-                onclick="document.getElementById('video-upload-c').click()">
-                <div
-                    class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
-                    <span class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
-                </div>
-                <p id="label-c" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload End Clip
-                </p>
-                <input type="file" id="video-upload-c" accept="video/*" class="hidden"
-                    onchange="handleFileSelect(this, 'label-c')">
-            </div>
-        </div>
     </div>
-    <div class="p-6 border-b border-white/5 flex items-center justify-between">
-        <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
-                class="material-symbols-outlined text-primary">history</span> Creation History</h2>
-        <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
-                class="material-symbols-outlined">close</span></button>
-    </div>
-    <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
-        <div class="text-center text-gray-500 mt-10">Loading history...</div>
-    </div>
-    <div id="analysis-panel"
-        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
-        <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
-                class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
-        <div class="flex gap-2">
-            <button onclick="toggleDrawer(true)"
-                class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10"><span
-                    class="material-symbols-outlined text-lg">history</span></button>
-            <button id="analyze-btn"
-                class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg"><span
-                    class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes</button>
-        </div>
-    </div>
-    <div id="review-panel"
-        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300">
-        <div class="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
-                    class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
+
+    <!-- FLOATING PANELS (Fixed Bottom) -->
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-30">
+
+        <!-- ANALYSIS PANEL -->
+        <div id="analysis-panel"
+            class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 mb-4">
+            <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
+                    class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
             <div class="flex gap-2">
                 <button onclick="toggleDrawer(true)"
-                    class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1"><span
-                        class="material-symbols-outlined text-sm">history</span> History</button>
-                <span class="text-white/10">|</span>
-                <button onclick="resetUI()"
-                    class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
+                    class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10"><span
+                        class="material-symbols-outlined text-lg">history</span></button>
+                <button id="analyze-btn"
+                    class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg"><span
+                        class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes</button>
             </div>
         </div>
-        <div>
-            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                Direction</label>
-            <textarea id="prompt-box" rows="2"
-                class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+
+        <!-- REVIEW PANEL -->
+        <div id="review-panel"
+            class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
+                        class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
+                <div class="flex gap-2">
+                    <button onclick="toggleDrawer(true)"
+                        class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1"><span
+                            class="material-symbols-outlined text-sm">history</span> History</button>
+                    <span class="text-white/10">|</span>
+                    <button onclick="resetUI()"
+                        class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
+                </div>
+            </div>
             <div>
                 <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                    Style</label>
-                <select id="style-select" onchange="savePreference('style', this.value)"
-                    class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
-                    <option value="Cinematic">Cinematic</option>
-                    <option value="Anime">Anime</option>
-                    <option value="Cyberpunk">Cyberpunk</option>
-                    <option value="VHS">VHS Glitch</option>
-                    <option value="Noir">Noir</option>
-                </select>
+                    Direction</label>
+                <textarea id="prompt-box" rows="2"
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
             </div>
-            <div>
-                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
-                    Mood</label>
-                <select id="audio-input" onchange="savePreference('audio', this.value)"
-                    class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
-                    <option value="Cinematic orchestral score">Cinematic</option>
-                    <option value="Industrial synthwave">Cyberpunk</option>
-                    <option value="Nature sounds">Nature</option>
-                    <option value="Tense atmosphere">Horror</option>
-                    <option value="High energy rock">Action</option>
-                </select>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
+                        Style</label>
+                    <select id="style-select" onchange="savePreference('style', this.value)"
+                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                        <option value="Cinematic">Cinematic</option>
+                        <option value="Anime">Anime</option>
+                        <option value="Cyberpunk">Cyberpunk</option>
+                        <option value="VHS">VHS Glitch</option>
+                        <option value="Noir">Noir</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
+                        Mood</label>
+                    <select id="audio-input" onchange="savePreference('audio', this.value)"
+                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                        <option value="Cinematic orchestral score">Cinematic</option>
+                        <option value="Industrial synthwave">Cyberpunk</option>
+                        <option value="Nature sounds">Nature</option>
+                        <option value="Tense atmosphere">Horror</option>
+                        <option value="High energy rock">Action</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        <div class="border-t border-white/10 pt-3">
-            <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
-                class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full">
-                <span class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
-                    class="material-symbols-outlined text-sm ml-auto">expand_more</span>
+            <div class="border-t border-white/10 pt-3">
+                <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
+                    class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full">
+                    <span class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
+                        class="material-symbols-outlined text-sm ml-auto">expand_more</span>
+                </button>
+                <div id="advanced-settings"
+                    class="hidden pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt</label>
+                        <input id="negative-prompt" type="text" placeholder="text, blurry, watermark, distorted"
+                            class="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-red-500/50 outline-none mt-1">
+                    </div>
+                    <div>
+                        <div class="flex justify-between"><label
+                                class="text-[10px] text-gray-500 uppercase font-bold">Guidance Scale</label><span
+                                id="guidance-val" class="text-[10px] text-primary">5.0</span></div>
+                        <input id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5"
+                            class="w-full mt-2"
+                            oninput="document.getElementById('guidance-val').innerText = this.value">
+                    </div>
+                    <div>
+                        <div class="flex justify-between"><label
+                                class="text-[10px] text-gray-500 uppercase font-bold">Motion Strength</label><span
+                                id="motion-val" class="text-[10px] text-primary">5</span></div>
+                        <input id="motion-strength" type="range" min="1" max="10" value="5" class="w-full mt-2"
+                            oninput="document.getElementById('motion-val').innerText = this.value">
+                    </div>
+                </div>
+            </div>
+            <button id="generate-btn"
+                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1">
+                <span class="material-symbols-outlined">auto_fix_high</span> Generate Video
             </button>
-            <div id="advanced-settings"
-                class="hidden pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                <div class="col-span-1 md:col-span-2">
-                    <label class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt (Exclude)</label>
-                    <input id="negative-prompt" type="text" placeholder="text, blurry, watermark, distorted"
-                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-red-500/50 outline-none mt-1">
-                </div>
-                <div>
-                    <div class="flex justify-between"><label
-                            class="text-[10px] text-gray-500 uppercase font-bold">Guidance Scale</label><span
-                            id="guidance-val" class="text-[10px] text-primary">5.0</span></div>
-                    <input id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5" class="w-full mt-2"
-                        oninput="document.getElementById('guidance-val').innerText = this.value">
-                </div>
-                <div>
-                    <div class="flex justify-between"><label
-                            class="text-[10px] text-gray-500 uppercase font-bold">Motion Strength</label><span
-                            id="motion-val" class="text-[10px] text-primary">5</span></div>
-                    <input id="motion-strength" type="range" min="1" max="10" value="5" class="w-full mt-2"
-                        oninput="document.getElementById('motion-val').innerText = this.value">
-                </div>
-            </div>
         </div>
-        <button id="generate-btn"
-            class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1">
-            <span class="material-symbols-outlined">auto_fix_high</span> Generate Video
-        </button>
     </div>
+
     <script>
         function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
         function loadPreferences() {
@@ -325,6 +372,7 @@
             const guidance = document.getElementById("guidance-scale").value;
             const style = document.getElementById("style-select").value;
             const audio = document.getElementById("audio-input").value;
+            const motion = document.getElementById("motion-strength").value;
             btn.disabled = true; btn.innerHTML = `Generating...`;
             try {
                 const res = await fetch("/generate", {
@@ -334,7 +382,8 @@
                         style: style,
                         audio_prompt: audio,
                         negative_prompt: negPrompt,
-                        guidance_scale: guidance,
+                        guidance_scale: parseFloat(guidance),
+                        motion_strength: parseInt(motion),
                         video_a_path: currentVideoAPath,
                         video_c_path: currentVideoCPath
                     })
