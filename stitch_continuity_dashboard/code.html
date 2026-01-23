@@ -88,21 +88,28 @@
 
 <body
     class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white relative">
-    <div class="flex items-center gap-3">
-        <div
-            class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
-            <span class="material-symbols-outlined">movie_filter</span>
+
+    <!-- Fixed Header -->
+    <header
+        class="flex items-center justify-between px-6 py-4 w-full z-40 relative bg-background-dark/80 backdrop-blur-sm border-b border-white/5">
+        <div class="flex items-center gap-3">
+            <div
+                class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
+                <span class="material-symbols-outlined">movie_filter</span>
+            </div>
+            <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
         </div>
-        <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
-    </div>
-    <div class="flex items-center gap-3">
-        <button onclick="toggleDrawer(true)"
-            class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
-            <span class="material-symbols-outlined text-lg">history</span> Gallery
-        </button>
-    </div>
+        <div class="flex items-center gap-3">
+            <button onclick="toggleDrawer(true)"
+                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
+                <span class="material-symbols-outlined text-lg">history</span> Gallery
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area with Scroll -->
     <div
-        class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12 mb-32 z-0 relative">
+        class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12 mb-32 z-0 relative flex-1 overflow-y-auto px-4 custom-scrollbar">
 
         <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
             <div class="flex justify-between px-1"><span
@@ -167,6 +174,8 @@
             </div>
         </div>
     </div>
+
+    <!-- Floating Controls -->
     <div id="analysis-panel"
         class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-2xl">
         <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
@@ -250,6 +259,7 @@
             class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1"><span
                 class="material-symbols-outlined">auto_fix_high</span> Generate Video</button>
     </div>
+
     <script>
         function savePreference(key, value) {
             localStorage.setItem('continuity_' + key, value);
@@ -401,7 +411,7 @@
 
                             // UI State
                             document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
-                            document.getElementById("bridge-border").classList.replace("border-transparent", "border-primary/50");
+                            document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
 
                             // 2. Show Merged Button if available
                             if (s.merged_video_url) {
