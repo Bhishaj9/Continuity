@@ -43,9 +43,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
             
-            # Using generate_videos with config
             # Note: Guidance and Motion strength parameters would be used here if the model config supported them directly in this SDK version
-            # For now we use the main prompt instructions.
             op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
@@ -68,17 +66,17 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 
                 if bridge_path:
                     # --- PHASE 3: THE FINAL CUT ---
-                    update_job_status(job_id, "stitching", 80, "Stitching Director's Cut (A+B+C)...")
-                    final_cut_path = os.path.join("outputs", f"{job_id}_full_movie.mp4")
+                    update_job_status(job_id, "stitching", 80, "Stitching Director's Cut (A+B+C)...", video_url=bridge_path)
+                    final_cut_path = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     
                     try:
                         final_output = stitch_videos(path_a, bridge_path, path_c, final_cut_path)
-                        # Update with the FULL MOVIE, not just the bridge
-                        update_job_status(job_id, "completed", 100, "Done! Director's Cut Ready.", video_url=final_output)
+                        # Success: Send BOTH Bridge URL (for player) and Merged URL (for download button)
+                        update_job_status(job_id, "completed", 100, "Done!", video_url=bridge_path, merged_video_url=final_output)
                     except Exception as e:
                         # If stitch fails, fallback to just the bridge
                         logging.error(f"Stitch failed: {e}")
-                        update_job_status(job_id, "completed", 100, "Stitch failed, showing bridge only.", video_url=bridge_path)
+                        update_job_status(job_id, "completed", 100, "Stitch failed, showing bridge.", video_url=bridge_path)
                     return
     except Exception as e:
         update_job_status(job_id, "error", 0, f"Error: {e}")

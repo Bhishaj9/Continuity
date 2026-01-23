@@ -5,20 +5,16 @@ import tempfile
 import logging
 import json
 import subprocess
-from datetime import datetime, timedelta
+from datetime import timedelta
 from google.cloud import storage
 from config import Settings
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def download_to_temp(url):
-    """Downloads a file from a URL to a temporary local file."""
-    logger.info(f"Downloading: {url}")
     if os.path.exists(url):
         return url
-        
     resp = requests.get(url, stream=True)
     resp.raise_for_status()
     suffix = os.path.splitext(url.split("/")[-1])[1] or ".mp4"
@@ -27,75 +23,41 @@ def download_to_temp(url):
         return f.name
 
 def download_blob(gcs_uri, destination_file_name):
-    """Downloads a blob from GCS."""
     if not gcs_uri.startswith("gs://"):
         raise ValueError(f"Invalid GCS URI: {gcs_uri}")
-        
     parts = gcs_uri[5:].split("/", 1)
-    bucket_name = parts[0]
-    blob_name = parts[1]
-    
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(blob_name)
-    blob.download_to_filename(destination_file_name)
-    logger.info(f"Downloaded storage object {gcs_uri} to local file {destination_file_name}.")
+    storage.Client().bucket(parts[0]).blob(parts[1]).download_to_filename(destination_file_name)
 
 def upload_to_gcs(local_path, destination_blob_name):
-    """Uploads a file to GCS and returns a signed URL."""
     if not Settings.GCP_BUCKET_NAME:
         return None
     try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(Settings.GCP_BUCKET_NAME)
-        blob = bucket.blob(destination_blob_name)
+        blob = storage.Client().bucket(Settings.GCP_BUCKET_NAME).blob(destination_blob_name)
         blob.upload_from_filename(local_path)
-        
-        url = blob.generate_signed_url(expiration=timedelta(hours=1), method='GET')
-        logger.info(f"Uploaded {local_path} to {destination_blob_name}. URL: {url}")
-        return url
+        return blob.generate_signed_url(expiration=timedelta(hours=1), method='GET')
     except Exception as e:
         logger.error(f"GCS Upload Failed: {e}")
         return None
 
 def get_history_from_gcs():
-    """Lists recent videos from GCS."""
     if not Settings.GCP_BUCKET_NAME:
         return []
-        
     try:
-        storage_client = storage.Client()
-        blobs = list(storage_client.bucket(Settings.GCP_BUCKET_NAME).list_blobs())
-        # Sort by time created (newest first)
+        blobs = list(storage.Client().bucket(Settings.GCP_BUCKET_NAME).list_blobs())
         blobs.sort(key=lambda b: b.time_created, reverse=True)
-        
-        history = []
-        for b in blobs[:20]:
-            if b.name.endswith(".mp4"):
-                history.append({
-                    "name": b.name,
-                    "url": b.generate_signed_url(timedelta(hours=1), method='GET'),
-                    "created": b.time_created.isoformat()
-                })
-        return history
-    except Exception as e:
-        logger.error(f"Failed to list GCS history: {e}")
+        return [{"name": b.name, "url": b.generate_signed_url(timedelta(hours=1), method='GET'), "created": b.time_created.isoformat()} for b in blobs[:20] if b.name.endswith(".mp4")]
+    except Exception:
         return []
 
 def save_video_bytes(bytes_data, suffix=".mp4") -> str:
-    """Saves raw video bytes to a temporary local file."""
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
         f.write(bytes_data)
         return f.name
 
 def stitch_videos(path_a, path_b, path_c, output_path):
-    """ 
-    Smart Stitching: Normalizes A, B, and C to 1080p/24fps and concatenates them. 
-    Handles different resolutions/codecs gracefully using FFmpeg filters. 
-    """
     logger.info("🧵 Stitching: A=%s + B=%s + C=%s -> %s", path_a, path_b, path_c, output_path)
-
-    # Filter: Scale to 1920x1080 (force), set SAR 1:1, set fps 24, concat.
+    
+    # FFmpeg complex filter to scale all to 1080p and concat
     cmd = [
         "ffmpeg", "-y",
         "-i", path_a,
@@ -116,9 +78,7 @@ def stitch_videos(path_a, path_b, path_c, output_path):
         output_path
     ]
 
-    # Fallback command if audio is missing in A or C (common issue)
-    # This generates silent audio for inputs that lack it (by ignoring audio in concat and outputting video only, or we could generate silence but this prompt used a video-only fallback rationale or just stripped audio)
-    # The prompt's fallback command: "[v0][v1][v2]concat=n=3:v=1:a=0[v]" -> video only.
+    # Fallback (video only if audio fails)
     cmd_robust = [
         "ffmpeg", "-y",
         "-i", path_a,
@@ -136,46 +96,50 @@ def stitch_videos(path_a, path_b, path_c, output_path):
     ]
 
     try:
-        # Try full stitch with audio
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"Audio stitch failed (likely missing audio tracks), retrying video-only stitch... Error: {e}")
+    except subprocess.CalledProcessError:
         try:
             subprocess.run(cmd_robust, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as e2:
-            logger.error(f"Critical Stitching Error: {e2.stderr.decode()}")
             raise e2
     return output_path
 
-def update_job_status(job_id, status, progress, log=None, video_url=None):
-    """Updates JSON status."""
+def update_job_status(job_id, status, progress, log=None, video_url=None, merged_video_url=None):
+    """Updates JSON status with SEPARATE bridge and merged URLs."""
     if not job_id:
         return
         
     os.makedirs("outputs", exist_ok=True)
 
     final_url = video_url
+    final_merged_url = merged_video_url
+    
+    # Move Bridge
     if video_url and os.path.exists(video_url) and status == "completed":
-        filename = os.path.basename(video_url)
-        # Avoid double-renaming if we are already dealing with a final name or just use unique
-        final_filename = f"{job_id}_final_{filename}" if "final" not in filename else filename
+        final_filename = f"{job_id}_bridge.mp4"
         dest = os.path.join("outputs", final_filename)
-        
-        # Move only if source != dest
+        # Check against absolute paths
         if os.path.abspath(video_url) != os.path.abspath(dest):
              shutil.move(video_url, dest)
-             
         final_url = f"/outputs/{final_filename}"
-        
-        # Auto backup for final result
         if Settings.GCP_BUCKET_NAME:
             upload_to_gcs(dest, final_filename)
+            
+    # Move Merged
+    if merged_video_url and os.path.exists(merged_video_url) and status == "completed":
+        merged_filename = f"{job_id}_merged.mp4"
+        merged_dest = os.path.join("outputs", merged_filename)
+        if os.path.abspath(merged_video_url) != os.path.abspath(merged_dest):
+             shutil.move(merged_video_url, merged_dest)
+        final_merged_url = f"/outputs/{merged_filename}"
+        if Settings.GCP_BUCKET_NAME:
+            upload_to_gcs(merged_dest, merged_filename)
 
-    file_path = os.path.join("outputs", f"{job_id}.json")
-    with open(file_path, "w") as f:
+    with open(f"outputs/{job_id}.json", "w") as f:
         json.dump({
-            "status": status,
-            "progress": progress,
-            "log": log,
-            "video_url": final_url
+            "status": status, 
+            "progress": progress, 
+            "log": log, 
+            "video_url": final_url, 
+            "merged_video_url": final_merged_url
         }, f)

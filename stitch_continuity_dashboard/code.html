@@ -110,18 +110,13 @@
                 class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
                 <span class="material-symbols-outlined">movie_filter</span>
             </div>
-            <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
-                    class="opacity-50 font-normal text-sm ml-2">v2.5 (Auteur)</span></h1>
+            <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
         </div>
         <div class="flex items-center gap-3">
             <button onclick="toggleDrawer(true)"
                 class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
                 <span class="material-symbols-outlined text-lg">history</span> Gallery
             </button>
-            <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
-                <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span class="text-xs font-bold text-green-400 tracking-wide uppercase">System Online</span>
-            </div>
         </div>
     </div>
 
@@ -189,6 +184,15 @@
                             class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30">
                         </div>
                     </div>
+                </div>
+
+                <div id="merged-download-container"
+                    class="hidden flex justify-center mt-4 animate-in fade-in slide-in-from-top-2">
+                    <a id="merged-download-btn" href="#" download
+                        class="flex items-center gap-2 px-6 py-3 bg-surface-dark hover:bg-white/5 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg group">
+                        <span class="material-symbols-outlined group-hover:animate-bounce">download</span>
+                        Download Merged Video
+                    </a>
                 </div>
             </div>
 
@@ -345,6 +349,7 @@
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
+            document.getElementById("merged-download-container").classList.add("hidden");
             currentVideoAPath = ""; currentVideoCPath = "";
             const b = document.getElementById("bridge-content");
             b.innerHTML = `<div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span><p class="text-xs text-gray-400">Ready</p></div>`;
@@ -374,6 +379,10 @@
             const audio = document.getElementById("audio-input").value;
             const motion = document.getElementById("motion-strength").value;
             btn.disabled = true; btn.innerHTML = `Generating...`;
+
+            // Hide download button if visible
+            document.getElementById("merged-download-container").classList.add("hidden");
+
             try {
                 const res = await fetch("/generate", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -395,9 +404,21 @@
                         const s = await sRes.json();
                         if (s.status === "completed") {
                             clearInterval(poll);
+
+                            // Show BRIDGE video in player
                             document.getElementById("bridge-content").innerHTML = `<video controls autoplay loop class="w-full h-full object-contain bg-black"><source src="${s.video_url}" type="video/mp4"></video>`;
                             document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
                             document.getElementById("bridge-border").classList.replace("border-transparent", "border-primary/50");
+
+                            // Show SEPARATE download button for Merged Video if available
+                            if (s.merged_video_url) {
+                                const dlBtn = document.getElementById("merged-download-btn");
+                                dlBtn.href = s.merged_video_url;
+                                // Force download filename
+                                dlBtn.download = `continuity_merged_${data.job_id}.mp4`;
+                                document.getElementById("merged-download-container").classList.remove("hidden");
+                            }
+
                             btn.innerHTML = "Done!"; setTimeout(() => { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`; }, 3000);
                         } else if (s.status === "error") {
                             clearInterval(poll); alert(s.log); btn.disabled = false; btn.innerHTML = "Try Again";
