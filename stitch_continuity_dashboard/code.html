@@ -48,7 +48,6 @@
 
         #gallery-drawer {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 50;
         }
 
         .drawer-open {
@@ -82,354 +81,179 @@
             background: #362445;
             border-radius: 2px;
         }
-
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(127, 13, 242, 0.5);
-            border-radius: 2px;
-        }
     </style>
 </head>
 
 <body
     class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white">
-
-    <!-- HEADER (Fixed height, no shrink) -->
-    <div
-        class="h-16 shrink-0 flex items-center justify-between px-6 border-b border-border-dark bg-background-dark/80 backdrop-blur-md z-40 relative">
-        <div class="flex items-center gap-3">
-            <div
-                class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
-                <span class="material-symbols-outlined">movie_filter</span>
-            </div>
-            <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
+    <div class="flex items-center gap-3">
+        <div
+            class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
+            <span class="material-symbols-outlined">movie_filter</span>
         </div>
-        <div class="flex items-center gap-3">
-            <button onclick="toggleDrawer(true)"
-                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
-                <span class="material-symbols-outlined text-lg">history</span> Gallery
-            </button>
-        </div>
+        <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
     </div>
-
-    <!-- GALLERY DRAWER (Fixed absolute overlay) -->
-    <div id="drawer-overlay"
-        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden transition-opacity duration-300 pointer-events-auto"
-        onclick="toggleDrawer(false)"></div>
-    <div id="gallery-drawer"
-        class="fixed top-0 right-0 h-full w-full max-w-md bg-surface-dark border-l border-border-dark shadow-2xl drawer-closed flex flex-col pointer-events-auto">
-        <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
-                    class="material-symbols-outlined text-primary">history</span> History</h2>
-            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
-                    class="material-symbols-outlined">close</span></button>
-        </div>
-        <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            <div class="text-center text-gray-500 mt-10">Loading...</div>
-        </div>
+    <div class="flex items-center gap-3">
+        <button onclick="toggleDrawer(true)"
+            class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
+            <span class="material-symbols-outlined text-lg">history</span> Gallery
+        </button>
     </div>
-
-    <!-- MAIN CONTENT (Flex grow, scrollable) -->
-    <div class="flex-1 overflow-y-auto w-full relative z-0 flex flex-col items-center pt-8 pb-32 px-4">
-        <div class="w-full max-w-6xl flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 lg:gap-12">
-
-            <!-- Scene A -->
-            <div class="flex flex-col gap-3 flex-1 w-full max-w-[320px] group">
-                <div class="flex justify-between px-1"><span
-                        class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span>
+    <div class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 mt-12">
+        <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
+            <div class="flex justify-between px-1"><span
+                    class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span></div>
+            <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
+                onclick="document.getElementById('video-upload-a').click()">
+                <div
+                    class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
+                    <span class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
                 </div>
-                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
-                    onclick="document.getElementById('video-upload-a').click()">
-                    <div
-                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
-                        <span
-                            class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
-                    </div>
-                    <p id="label-a" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload
-                        Start Clip</p>
-                    <input type="file" id="video-upload-a" accept="video/*" class="hidden"
-                        onchange="handleFileSelect(this, 'label-a')">
-                </div>
+                <p id="label-a" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload Start
+                    Clip</p>
+                <input type="file" id="video-upload-a" accept="video/*" class="hidden"
+                    onchange="handleFileSelect(this, 'label-a')">
             </div>
-
-            <!-- Bridge -->
-            <div class="flex flex-col gap-3 flex-[1.5] w-full max-w-[500px] relative z-20">
-                <div class="flex justify-center px-1"><span
-                        class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
-                        Bridge</span></div>
-                <div id="bridge-card-outer"
-                    class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
-                    <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
-                        <div id="bridge-content" class="w-full h-full">
+        </div>
+        <div class="flex flex-col gap-3 flex-[1.5] max-w-[500px] relative z-20">
+            <div class="flex justify-center px-1"><span
+                    class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
+                    Bridge</span></div>
+            <div id="bridge-card-outer"
+                class="relative aspect-video rounded-2xl shadow-neon transition-all duration-500 border border-primary/20">
+                <div id="bridge-card-inner" class="force-clip w-full h-full bg-black relative">
+                    <div id="bridge-content" class="w-full h-full">
+                        <div
+                            class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
+                        </div>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
                             <div
-                                class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay">
-                            </div>
-                            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
-                                <div
-                                    class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
-                                    <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
-                                </div>
-                                <p class="text-sm text-gray-300">Ready to bridge the gap</p>
-                            </div>
-                        </div>
-                        <div id="bridge-border"
-                            class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30">
+                                class="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-3">
+                                <span class="material-symbols-outlined text-3xl text-primary">auto_awesome</span></div>
+                            <p class="text-sm text-gray-300">Ready to bridge the gap</p>
                         </div>
                     </div>
-                </div>
-
-                <div id="merged-download-container"
-                    class="hidden flex justify-center mt-4 animate-in fade-in slide-in-from-top-2">
-                    <a id="merged-download-btn" href="#" download
-                        class="flex items-center gap-2 px-6 py-3 bg-surface-dark hover:bg-white/5 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg group">
-                        <span class="material-symbols-outlined group-hover:animate-bounce">download</span>
-                        Download Merged Video
-                    </a>
+                    <div id="bridge-border"
+                        class="absolute inset-0 rounded-2xl border-2 border-transparent pointer-events-none z-30"></div>
                 </div>
             </div>
-
-            <!-- Scene C -->
-            <div class="flex flex-col gap-3 flex-1 w-full max-w-[320px] group">
-                <div class="flex justify-end px-1"><span
-                        class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span></div>
-                <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
-                    onclick="document.getElementById('video-upload-c').click()">
-                    <div
-                        class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
-                        <span
-                            class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
-                    </div>
-                    <p id="label-c" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload End
-                        Clip</p>
-                    <input type="file" id="video-upload-c" accept="video/*" class="hidden"
-                        onchange="handleFileSelect(this, 'label-c')">
+            <div id="merged-download-container"
+                class="hidden flex justify-center mt-4 animate-in fade-in slide-in-from-top-2">
+                <a id="merged-download-btn" href="#" download
+                    class="flex items-center gap-2 px-6 py-3 bg-surface-dark hover:bg-white/5 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg group">
+                    <span class="material-symbols-outlined group-hover:animate-bounce">download</span> Download merged
+                    video
+                </a>
+            </div>
+        </div>
+        <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
+            <div class="flex justify-end px-1"><span
+                    class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span></div>
+            <div class="relative aspect-[9/16] md:aspect-[3/4] bg-surface-dark border-2 border-dashed border-border-dark rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-surface-dark/80 transition-all cursor-pointer shadow-lg overflow-hidden"
+                onclick="document.getElementById('video-upload-c').click()">
+                <div
+                    class="size-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform relative z-10">
+                    <span class="material-symbols-outlined text-2xl text-gray-400 group-hover:text-white">upload</span>
                 </div>
+                <p id="label-c" class="text-xs font-medium text-gray-400 text-center px-4 relative z-10">Upload End Clip
+                </p>
+                <input type="file" id="video-upload-c" accept="video/*" class="hidden"
+                    onchange="handleFileSelect(this, 'label-c')">
             </div>
         </div>
     </div>
-
-    <!-- FLOATING PANELS (Fixed Bottom) -->
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-30">
-
-        <!-- ANALYSIS PANEL -->
-        <div id="analysis-panel"
-            class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 mb-4">
-            <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
-                    class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
+    <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2"><span
+                class="material-symbols-outlined text-primary">history</span> History</h2>
+        <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors"><span
+                class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="gallery-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="text-center text-gray-500 mt-10">Loading...</div>
+    </div>
+    <div id="analysis-panel"
+        class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2">
+        <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
+                class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span></div>
+        <div class="flex gap-2">
+            <button onclick="toggleDrawer(true)"
+                class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10"><span
+                    class="material-symbols-outlined text-lg">history</span></button>
+            <button id="analyze-btn"
+                class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg"><span
+                    class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes</button>
+        </div>
+    </div>
+    <div id="review-panel"
+        class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
+                    class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
             <div class="flex gap-2">
                 <button onclick="toggleDrawer(true)"
-                    class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10"><span
-                        class="material-symbols-outlined text-lg">history</span></button>
-                <button id="analyze-btn"
-                    class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg"><span
-                        class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes</button>
+                    class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1"><span
+                        class="material-symbols-outlined text-sm">history</span> History</button>
+                <span class="text-white/10">|</span>
+                <button onclick="resetUI()"
+                    class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
             </div>
         </div>
-
-        <!-- REVIEW PANEL -->
-        <div id="review-panel"
-            class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar">
-            <div class="flex items-center justify-between border-b border-white/10 pb-3">
-                <h3 class="text-sm font-bold text-white flex items-center gap-2"><span
-                        class="material-symbols-outlined text-primary">movie_edit</span> Director's Configuration</h3>
-                <div class="flex gap-2">
-                    <button onclick="toggleDrawer(true)"
-                        class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1"><span
-                            class="material-symbols-outlined text-sm">history</span> History</button>
-                    <span class="text-white/10">|</span>
-                    <button onclick="resetUI()"
-                        class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
-                </div>
-            </div>
-            <div>
-                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                    Direction</label>
-                <textarea id="prompt-box" rows="2"
-                    class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                        Style</label>
-                    <select id="style-select" onchange="savePreference('style', this.value)"
-                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
-                        <option value="Cinematic">Cinematic</option>
-                        <option value="Anime">Anime</option>
-                        <option value="Cyberpunk">Cyberpunk</option>
-                        <option value="VHS">VHS Glitch</option>
-                        <option value="Noir">Noir</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
-                        Mood</label>
-                    <select id="audio-input" onchange="savePreference('audio', this.value)"
-                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
-                        <option value="Cinematic orchestral score">Cinematic</option>
-                        <option value="Industrial synthwave">Cyberpunk</option>
-                        <option value="Nature sounds">Nature</option>
-                        <option value="Tense atmosphere">Horror</option>
-                        <option value="High energy rock">Action</option>
-                    </select>
-                </div>
-            </div>
-            <div class="border-t border-white/10 pt-3">
-                <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
-                    class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full">
-                    <span class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
-                        class="material-symbols-outlined text-sm ml-auto">expand_more</span>
-                </button>
-                <div id="advanced-settings"
-                    class="hidden pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                    <div class="col-span-1 md:col-span-2">
-                        <label class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt</label>
-                        <input id="negative-prompt" type="text" placeholder="text, blurry, watermark, distorted"
-                            class="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-red-500/50 outline-none mt-1">
-                    </div>
-                    <div>
-                        <div class="flex justify-between"><label
-                                class="text-[10px] text-gray-500 uppercase font-bold">Guidance Scale</label><span
-                                id="guidance-val" class="text-[10px] text-primary">5.0</span></div>
-                        <input id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5"
-                            class="w-full mt-2"
-                            oninput="document.getElementById('guidance-val').innerText = this.value">
-                    </div>
-                    <div>
-                        <div class="flex justify-between"><label
-                                class="text-[10px] text-gray-500 uppercase font-bold">Motion Strength</label><span
-                                id="motion-val" class="text-[10px] text-primary">5</span></div>
-                        <input id="motion-strength" type="range" min="1" max="10" value="5" class="w-full mt-2"
-                            oninput="document.getElementById('motion-val').innerText = this.value">
-                    </div>
-                </div>
-            </div>
-            <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1">
-                <span class="material-symbols-outlined">auto_fix_high</span> Generate Video
-            </button>
+        <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
+                Direction</label><textarea id="prompt-box" rows="2"
+                class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
         </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
+                    Style</label><select id="style-select" onchange="savePreference('style', this.value)"
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                    <option value="Cinematic">Cinematic</option>
+                    <option value="Anime">Anime</option>
+                    <option value="Cyberpunk">Cyberpunk</option>
+                    <option value="VHS">VHS Glitch</option>
+                    <option value="Noir">Noir</option>
+                </select></div>
+            <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
+                    Mood</label><select id="audio-input" onchange="savePreference('audio', this.value)"
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
+                    <option value="Cinematic orchestral score">Cinematic</option>
+                    <option value="Industrial synthwave">Cyberpunk</option>
+                    <option value="Nature sounds">Nature</option>
+                    <option value="Tense atmosphere">Horror</option>
+                    <option value="High energy rock">Action</option>
+                </select></div>
+        </div>
+        <div class="border-t border-white/10 pt-3">
+            <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
+                class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full"><span
+                    class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
+                    class="material-symbols-outlined text-sm ml-auto">expand_more</span></button>
+            <div id="advanced-settings"
+                class="hidden pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                <div class="col-span-1 md:col-span-2"><label
+                        class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt</label><input
+                        id="negative-prompt" type="text" placeholder="text, blurry, watermark"
+                        class="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-red-500/50 outline-none mt-1">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label
+                            class="text-[10px] text-gray-500 uppercase font-bold">Guidance Scale</label><span
+                            id="guidance-val" class="text-[10px] text-primary">5.0</span></div><input
+                        id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5" class="w-full mt-2"
+                        oninput="document.getElementById('guidance-val').innerText = this.value">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label
+                            class="text-[10px] text-gray-500 uppercase font-bold">Motion Strength</label><span
+                            id="motion-val" class="text-[10px] text-primary">5</span></div><input id="motion-strength"
+                        type="range" min="1" max="10" value="5" class="w-full mt-2"
+                        oninput="document.getElementById('motion-val').innerText = this.value">
+                </div>
+            </div>
+        </div>
+        <button id="generate-btn"
+            class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1"><span
+                class="material-symbols-outlined">auto_fix_high</span> Generate Video</button>
     </div>
-
-    <script>
-        function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
-        function loadPreferences() {
-            const s = localStorage.getItem('continuity_style'); const a = localStorage.getItem('continuity_audio');
-            if (s) document.getElementById('style-select').value = s;
-            if (a) document.getElementById('audio-input').value = a;
-        }
-        loadPreferences();
-        const drawer = document.getElementById('gallery-drawer');
-        const overlay = document.getElementById('drawer-overlay');
-        function toggleDrawer(show) {
-            if (show) { drawer.classList.replace('drawer-closed', 'drawer-open'); overlay.classList.remove('hidden'); fetchHistory(); }
-            else { drawer.classList.replace('drawer-open', 'drawer-closed'); overlay.classList.add('hidden'); }
-        }
-        async function fetchHistory() {
-            const c = document.getElementById('gallery-content'); c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
-            try {
-                const res = await fetch('/history'); const data = await res.json();
-                if (!data || !data.length) { c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history found.</div>'; return; }
-                c.innerHTML = data.map(item => `
-            <div class="bg-black/40 rounded-lg overflow-hidden border border-white/5 hover:border-primary/50 transition-colors mb-4">
-                <video src="${item.url}" class="w-full aspect-video object-cover" controls></video>
-                <div class="p-2 flex justify-between items-center"><span class="text-[10px] text-gray-400 truncate w-32">${item.name}</span><a href="${item.url}" download class="text-gray-400 hover:text-white"><span class="material-symbols-outlined text-sm">download</span></a></div>
-            </div>`).join('');
-            } catch (e) { c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.</div>'; }
-        }
-        function handleFileSelect(input, labelId) { if (input.files[0]) { document.getElementById(labelId).innerText = input.files[0].name; document.getElementById(labelId).classList.add("text-primary", "font-bold"); } }
-        function resetUI() {
-            document.getElementById("analysis-panel").classList.remove("hidden");
-            document.getElementById("review-panel").classList.add("hidden");
-            document.getElementById("prompt-box").value = "";
-            document.getElementById("merged-download-container").classList.add("hidden");
-            currentVideoAPath = ""; currentVideoCPath = "";
-            const b = document.getElementById("bridge-content");
-            b.innerHTML = `<div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span><p class="text-xs text-gray-400">Ready</p></div>`;
-            document.getElementById("bridge-card-outer").classList.replace("border-primary", "border-primary/20");
-            document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
-        }
-        document.getElementById("analyze-btn").addEventListener("click", async () => {
-            const fA = document.getElementById("video-upload-a").files[0]; const fC = document.getElementById("video-upload-c").files[0];
-            if (!fA || !fC) return alert("Upload both scenes.");
-            const btn = document.getElementById("analyze-btn"); btn.disabled = true; btn.innerHTML = `Analyzing...`;
-            const fd = new FormData(); fd.append("video_a", fA); fd.append("video_c", fC);
-            try {
-                const res = await fetch("/analyze", { method: "POST", body: fd });
-                const data = await res.json();
-                document.getElementById("prompt-box").value = data.prompt;
-                currentVideoAPath = data.video_a_path; currentVideoCPath = data.video_c_path;
-                document.getElementById("analysis-panel").classList.add("hidden");
-                document.getElementById("review-panel").classList.remove("hidden");
-            } catch (e) { alert(e.message); } finally { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes`; }
-        });
-        document.getElementById("generate-btn").addEventListener("click", async () => {
-            const btn = document.getElementById("generate-btn");
-            const prompt = document.getElementById("prompt-box").value;
-            const negPrompt = document.getElementById("negative-prompt").value;
-            const guidance = document.getElementById("guidance-scale").value;
-            const style = document.getElementById("style-select").value;
-            const audio = document.getElementById("audio-input").value;
-            const motion = document.getElementById("motion-strength").value;
-            btn.disabled = true; btn.innerHTML = `Generating...`;
-
-            // Hide download button if visible
-            document.getElementById("merged-download-container").classList.add("hidden");
-
-            try {
-                const res = await fetch("/generate", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        prompt: prompt,
-                        style: style,
-                        audio_prompt: audio,
-                        negative_prompt: negPrompt,
-                        guidance_scale: parseFloat(guidance),
-                        motion_strength: parseInt(motion),
-                        video_a_path: currentVideoAPath,
-                        video_c_path: currentVideoCPath
-                    })
-                });
-                const data = await res.json();
-                const poll = setInterval(async () => {
-                    const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
-                    if (sRes.ok) {
-                        const s = await sRes.json();
-                        if (s.status === "completed") {
-                            clearInterval(poll);
-
-                            // Show BRIDGE video in player
-                            document.getElementById("bridge-content").innerHTML = `<video controls autoplay loop class="w-full h-full object-contain bg-black"><source src="${s.video_url}" type="video/mp4"></video>`;
-                            document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
-                            document.getElementById("bridge-border").classList.replace("border-transparent", "border-primary/50");
-
-                            // Show SEPARATE download button for Merged Video if available
-                            if (s.merged_video_url) {
-                                const dlBtn = document.getElementById("merged-download-btn");
-                                dlBtn.href = s.merged_video_url;
-                                // Force download filename
-                                dlBtn.download = `continuity_merged_${data.job_id}.mp4`;
-                                document.getElementById("merged-download-container").classList.remove("hidden");
-                            }
-
-                            btn.innerHTML = "Done!"; setTimeout(() => { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`; }, 3000);
-                        } else if (s.status === "error") {
-                            clearInterval(poll); alert(s.log); btn.disabled = false; btn.innerHTML = "Try Again";
-                        } else {
-                            btn.innerHTML = `${s.log} (${s.progress}%)`;
-                        }
-                    }
-                }, 1500);
-            } catch (e) { alert(e.message); btn.disabled = false; }
-        });
-    </script>
 </body>
 
 </html>
