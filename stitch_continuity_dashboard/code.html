@@ -268,24 +268,22 @@
 
         // Init 
         loadPreferences();
-        const drawer = document.getElementById('gallery-drawer');
-        const overlay = document.getElementById('drawer-overlay');
 
         function toggleDrawer(show) {
+            const d = document.getElementById('gallery-drawer');
+            const o = document.getElementById('drawer-overlay');
+
             if (show) {
-                // Ensure drawer exists
-                const d = document.getElementById('gallery-drawer');
-                const o = document.getElementById('drawer-overlay');
                 if (d && o) {
-                    d.classList.replace('drawer-closed', 'drawer-open');
+                    d.classList.remove('drawer-closed');
+                    d.classList.add('drawer-open');
                     o.classList.remove('hidden');
                     fetchHistory();
                 }
             } else {
-                const d = document.getElementById('gallery-drawer');
-                const o = document.getElementById('drawer-overlay');
                 if (d && o) {
-                    d.classList.replace('drawer-open', 'drawer-closed');
+                    d.classList.remove('drawer-open');
+                    d.classList.add('drawer-closed');
                     o.classList.add('hidden');
                 }
             }
