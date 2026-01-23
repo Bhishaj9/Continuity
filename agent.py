@@ -36,7 +36,7 @@ def get_or_upload_file(client, filepath):
 def analyze_only(path_a, path_c, job_id=None):
     update_job_status(job_id, "analyzing", 10, "Director checking file cache...")
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
-    
+
     try:
         file_a = get_or_upload_file(client, path_a)
         file_c = get_or_upload_file(client, path_c)
@@ -46,7 +46,7 @@ def analyze_only(path_a, path_c, job_id=None):
             time.sleep(2)
             file_a = client.files.get(name=file_a.name)
             file_c = client.files.get(name=file_c.name)
-
+            
         prompt = """
         You are a VFX Director. Analyze Video A and Video C.
         Return a JSON object with exactly these keys:
@@ -65,14 +65,32 @@ def analyze_only(path_a, path_c, job_id=None):
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         
-        data = json.loads(res.text)
+        # FIX: Robust JSON Cleaning
+        text = res.text.strip()
+        if text.startswith("```json"): text = text[7:]
+        if text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        text = text.strip()
+        
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            # Fallback if JSON fails
+            logger.warning("JSON Decode failed, using raw text fallback")
+            return {
+                "analysis_a": "Analysis unavailable",
+                "analysis_c": "Analysis unavailable",
+                "prompt": text,
+                "status": "success"
+            }
         return {
             "analysis_a": data.get("analysis_a", ""),
             "analysis_c": data.get("analysis_c", ""),
-            "prompt": data.get("visual_prompt_b", res.text),
+            "prompt": data.get("visual_prompt_b", text),
             "status": "success"
         }
     except Exception as e:
+        logger.error(f"Analysis failed: {e}")
         return {"detail": str(e), "status": "error"}
 
 def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
@@ -80,7 +98,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
     full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
     if neg:
         full_prompt += f" --no {neg}"
-        
+
     try:
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
@@ -109,6 +127,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                         final_output = stitch_videos(path_a, bridge_path, path_c, final_cut_path)
                         update_job_status(job_id, "completed", 100, "Done!", video_url=bridge_path, merged_video_url=final_output)
                     except Exception as e:
+                        logger.error(f"Stitch error: {e}")
                         update_job_status(job_id, "completed", 100, "Stitch failed, showing bridge.", video_url=bridge_path)
                     return
     except Exception as e:
