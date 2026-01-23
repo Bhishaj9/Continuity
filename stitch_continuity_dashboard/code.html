@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Continuity v2.3</title>
+    <title>Continuity v2.4</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -76,18 +76,18 @@
 
     <!-- HEADER -->
     <header
-        class="w-full fixed top-0 z-50 bg-black/50 backdrop-blur-md border-b border-white/5 h-16 flex items-center justify-between px-6 lg:px-12">
+        class="w-full fixed top-0 z-[60] bg-black/50 backdrop-blur-md border-b border-white/5 h-16 flex items-center justify-between px-6 lg:px-12">
         <div class="flex items-center gap-3">
             <div
                 class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
                 <span class="material-symbols-outlined">movie_filter</span>
             </div>
             <h1 class="text-xl font-display font-bold tracking-tight">Continuity <span
-                    class="opacity-50 font-normal text-sm ml-2">v2.3</span></h1>
+                    class="opacity-50 font-normal text-sm ml-2">v2.4</span></h1>
         </div>
         <div class="flex items-center gap-3">
-            <button id="history-btn"
-                class="flex items-center gap-2 px-4 py-2 bg-surface-dark border border-white/10 rounded-lg hover:bg-white/5 transition-colors text-xs font-bold uppercase tracking-wider">
+            <button onclick="toggleDrawer(true)"
+                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
                 <span class="material-symbols-outlined text-lg">history</span>
                 Gallery
             </button>
@@ -108,7 +108,7 @@
                 <span class="material-symbols-outlined text-primary">history</span>
                 Creation History
             </h2>
-            <button id="close-drawer" class="text-gray-400 hover:text-white transition-colors">
+            <button onclick="toggleDrawer(false)" class="text-gray-400 hover:text-white transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -194,11 +194,17 @@
                 <span class="text-sm font-bold text-white">Continuity Engine</span>
                 <span class="text-[10px] text-gray-400 uppercase tracking-wide">Ready for analysis</span>
             </div>
-            <button id="analyze-btn"
-                class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg">
-                <span class="material-symbols-outlined text-lg">analytics</span>
-                Analyze Scenes
-            </button>
+            <div class="flex gap-2">
+                <button onclick="toggleDrawer(true)"
+                    class="bg-surface-dark hover:bg-white/10 text-white p-3 rounded-full transition-all flex items-center justify-center border border-white/10">
+                    <span class="material-symbols-outlined text-lg">history</span>
+                </button>
+                <button id="analyze-btn"
+                    class="bg-primary hover:bg-[#6b0bc9] text-white px-6 py-3 rounded-full font-bold text-sm transition-all flex items-center gap-2 shadow-lg">
+                    <span class="material-symbols-outlined text-lg">analytics</span>
+                    Analyze Scenes
+                </button>
+            </div>
         </div>
 
         <!-- Review Panel -->
@@ -209,8 +215,15 @@
                     <span class="material-symbols-outlined text-primary">movie_edit</span>
                     Director's Configuration
                 </h3>
-                <button onclick="resetUI()"
-                    class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
+                <div class="flex gap-2">
+                    <button onclick="toggleDrawer(true)"
+                        class="text-xs text-gray-400 hover:text-white uppercase tracking-wider flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">history</span> History
+                    </button>
+                    <span class="text-white/10">|</span>
+                    <button onclick="resetUI()"
+                        class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
+                </div>
             </div>
 
             <div>
@@ -278,8 +291,6 @@
         // --- HISTORY GALLERY LOGIC ---
         const drawer = document.getElementById('gallery-drawer');
         const overlay = document.getElementById('drawer-overlay');
-        const historyBtn = document.getElementById('history-btn');
-        const closeBtn = document.getElementById('close-drawer');
 
         function toggleDrawer(show) {
             if (show) {
@@ -293,10 +304,6 @@
                 overlay.classList.add('hidden');
             }
         }
-
-        historyBtn.addEventListener('click', () => toggleDrawer(true));
-        closeBtn.addEventListener('click', () => toggleDrawer(false));
-        overlay.addEventListener('click', () => toggleDrawer(false));
 
         async function fetchHistory() {
             const container = document.getElementById('gallery-content');
