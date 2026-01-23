@@ -357,6 +357,7 @@
             c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
             try {
                 const res = await fetch('/history');
+                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 if (!data || !data.length) {
                     c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history found.</div>';
@@ -412,6 +413,7 @@
             fd.append("video_c", fC);
             try {
                 const res = await fetch("/analyze", { method: "POST", body: fd });
+                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 document.getElementById("prompt-box").value = data.prompt;
 
@@ -450,6 +452,7 @@
                         video_c_path: currentVideoCPath
                     })
                 });
+                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 const poll = setInterval(async () => {
                     const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);

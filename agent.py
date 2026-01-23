@@ -55,16 +55,18 @@ def analyze_only(path_a, path_c, job_id=None):
             "analysis_c": "Brief description of Video C's lighting, subject, and camera movement.",
             "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C. DO NOT use words like 'dissolve' or 'cut'. Focus on shape and texture transformation."
         }
+        DO NOT use markdown code blocks. Return RAW JSON only.
         """
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
         
+        # Request JSON output
         res = client.models.generate_content(
             model="gemini-2.0-flash-exp", 
             contents=[prompt, file_a, file_c],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         
-        # FIX: Robust JSON Cleaning & List Handling
+        # Robust JSON Cleaning
         text = res.text.strip()
         if text.startswith("```json"): text = text[7:]
         elif text.startswith("```"): text = text[3:]
@@ -85,6 +87,7 @@ def analyze_only(path_a, path_c, job_id=None):
                 "prompt": text,
                 "status": "success"
             }
+            
         return {
             "analysis_a": data.get("analysis_a", ""),
             "analysis_c": data.get("analysis_c", ""),
