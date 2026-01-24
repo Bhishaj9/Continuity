@@ -5,7 +5,7 @@ import tempfile
 import logging
 import json
 import subprocess
-from datetime import datetime, timedelta
+from datetime import timedelta
 from google.cloud import storage
 from config import Settings
 logger = logging.getLogger(__name__)
@@ -47,33 +47,51 @@ def save_video_bytes(bytes_data, suffix=".mp4") -> str:
         f.write(bytes_data)
     return f.name
 
-def stitch_videos(path_a, path_b, path_c, output_path):
-    """ Robust Stitching: Normalizes resolution, fps, and audio to prevent FFmpeg hangs. """
-    logger.info(f"🧵 Stitching: {path_a} + {path_b} + {path_c} -> {output_path}")
+def normalize_video(input_path):
+    """Converts any video to a standard 1080p, 24fps, silent MP4 intermediate."""
+    output_path = input_path.replace(".mp4", "_norm.mp4")
+    cmd = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-an", # Remove audio to prevent mixing crashes
+        output_path
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    return output_path
 
-    # Complex Filter:
-    # 1. Scale all to 1080p, force 24fps, reset SAR (aspect ratio markers).
-    # 2. Generate silent audio (anullsrc) for safety, then map video streams.
-    # 3. Concat everything.
-    filter_complex = (
-        "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v0];"
-        "[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v1];"
-        "[2:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p[v2];"
-        "[v0][v1][v2]concat=n=3:v=1:a=0[v]"
-    )
-    cmd = [ "ffmpeg", "-y", "-i", path_a, "-i", path_b, "-i", path_c, "-filter_complex", filter_complex, "-map", "[v]", "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-an", # Remove audio to prevent codec crashes (simplest fix for stability)
-    output_path ]
+def stitch_videos(path_a, path_b, path_c, output_path):
+    """ Robust Stitching: Normalizes clips individually first, then concats. This avoids the 'complex filter' crashes common with mismatched inputs. """
+    logger.info(f"🧵 Stitching: {path_a} + {path_b} + {path_c}")
 
     try:
-        # TIMEOUT ADDED: Prevents infinite hanging
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        # 1. Normalize all inputs to identical format
+        norm_a = normalize_video(path_a)
+        norm_b = normalize_video(path_b)
+        norm_c = normalize_video(path_c)
+        
+        # 2. Create list file for concat
+        list_file = "concat_list.txt"
+        with open(list_file, "w") as f:
+            f.write(f"file '{norm_a}'\n")
+            f.write(f"file '{norm_b}'\n")
+            f.write(f"file '{norm_c}'\n")
+        
+        # 3. Concatenate using stream copy (fast & safe)
+        cmd = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file,
+            "-c", "copy", output_path
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        
+        # Cleanup temps
+        for p in [norm_a, norm_b, norm_c, list_file]:
+            if os.path.exists(p): os.remove(p)
+            
         return output_path
-    except subprocess.TimeoutExpired:
-        logger.error("❌ FFmpeg timed out after 60s.")
-        raise Exception("Stitching timed out.")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"❌ FFmpeg Error: {e.stderr.decode()}")
-        raise Exception(f"Stitching failed: {e.stderr.decode()[:100]}")
+        
+    except Exception as e:
+        logger.error(f"Stitch Logic Failed: {e}")
+        raise e
 
 def update_job_status(job_id, status, progress, log=None, video_url=None, merged_video_url=None):
     if not job_id: return
@@ -81,14 +99,14 @@ def update_job_status(job_id, status, progress, log=None, video_url=None, merged
 
     final_url = video_url
     final_merged_url = merged_video_url
-    # Move Raw Bridge
+    # Move Bridge
     if video_url and os.path.exists(video_url) and status == "completed":
         final_filename = f"{job_id}_bridge.mp4"
         dest = os.path.join("outputs", final_filename)
         if os.path.abspath(video_url) != os.path.abspath(dest): shutil.move(video_url, dest)
         final_url = f"/outputs/{final_filename}"
         if Settings.GCP_BUCKET_NAME: upload_to_gcs(dest, final_filename)
-    # Move Merged Video (if it exists)
+    # Move Merged
     if merged_video_url and os.path.exists(merged_video_url) and status == "completed":
         merged_filename = f"{job_id}_merged.mp4"
         merged_dest = os.path.join("outputs", merged_filename)

@@ -100,12 +100,14 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # Robust polling
+            # Wait loop
             while not op.done: time.sleep(5)
             
             if op.result and op.result.generated_videos:
                 vid = op.result.generated_videos[0]
                 bridge_path = None
+                
+                # Handle Video Download
                 if vid.video.uri:
                     bridge_path = tempfile.mktemp(suffix=".mp4")
                     download_blob(vid.video.uri, bridge_path)
@@ -113,27 +115,27 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     bridge_path = save_video_bytes(vid.video.video_bytes)
                 
                 if bridge_path:
-                    # --- STITCHING TRY/EXCEPT BLOCK ---
+                    # --- STITCHING PHASE ---
                     update_job_status(job_id, "stitching", 80, "Stitching Director's Cut...", video_url=bridge_path)
                     final_cut_path = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     
                     try:
-                        # Attempt Stitching with Timeout
+                        # Attempt the new robust stitch
                         final_output = stitch_videos(path_a, bridge_path, path_c, final_cut_path)
-                        # SUCCESS: Return Both
+                        # If successful, return BOTH urls
                         update_job_status(job_id, "completed", 100, "Done!", video_url=bridge_path, merged_video_url=final_output)
                     except Exception as e:
-                        # FAILURE: Return Bridge Only (Don't crash the job!)
-                        logging.error(f"Stitch failed, continuing with bridge only. Error: {e}")
+                        # If stitch fails, log it and return ONLY the bridge. 
+                        # DO NOT FAIL THE JOB.
+                        logging.error(f"Stitch failed, returning bridge only: {e}")
                         update_job_status(job_id, "completed", 100, "Stitch failed (Bridge Saved).", video_url=bridge_path)
-                    # ----------------------------------
                     return
             else:
                 raise Exception("Veo returned no videos.")
         else:
              raise Exception("GCP_PROJECT_ID not set.")
     except Exception as e:
-        logging.error(f"Gen Fatal: {e}")
+        logging.error(f"Gen Fail: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
         job_failed = True
     finally:
@@ -141,5 +143,5 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             try:
                 with open(f"outputs/{job_id}.json", "r") as f:
                     if json.load(f).get("status") not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Job terminated unexpectedly.")
+                        update_job_status(job_id, "error", 0, "Zombie Job Terminated")
             except: pass
