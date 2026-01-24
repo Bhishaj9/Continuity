@@ -4,12 +4,12 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# 1. INSTALL SYSTEM DEPENDENCIES (Critical for Video Processing)
-# - ffmpeg: Required for stitching
-# - libgl1/libglib: Required for OpenCV and graphical operations
+# 1. INSTALL SYSTEM DEPENDENCIES
+# Fix: 'libgl1-mesa-glx' is deprecated. Using 'libgl1' and 'libglx-mesa0' instead.
 RUN apt-get update && apt-get install -y \
     ffmpeg \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglx-mesa0 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
