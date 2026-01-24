@@ -99,12 +99,12 @@ def analyze_only(path_a, path_c, job_id=None):
         return {"detail": str(e), "status": "error"}
 
 def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
-    update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
-    full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
-    if neg:
-        full_prompt += f" --no {neg}"
-
     try:
+        update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
+        full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
+        if neg:
+            full_prompt += f" --no {neg}"
+
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
             op = client.models.generate_videos(
@@ -135,7 +135,25 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                         logger.error(f"Stitch error: {e}")
                         update_job_status(job_id, "completed", 100, "Stitch failed, showing bridge.", video_url=bridge_path)
                     return
+
+        # If we reach here, something failed or didn't generate video
+        update_job_status(job_id, "error", 0, "Generation failed.")
+
     except Exception as e:
+        logger.error(f"Worker crashed: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
-        return
-    update_job_status(job_id, "error", 0, "Generation failed.")
+
+    finally:
+        # Enforce Terminal State
+        try:
+            status_file = f"outputs/{job_id}.json"
+            if os.path.exists(status_file):
+                with open(status_file, "r") as f:
+                    data = json.load(f)
+
+                status = data.get("status")
+                if status not in ["completed", "error"]:
+                    logger.warning(f"Job {job_id} left in non-terminal state ({status}). Forcing error.")
+                    update_job_status(job_id, "error", 0, "Job terminated unexpectedly.")
+        except Exception as e:
+            logger.error(f"Final safety net failed: {e}")
