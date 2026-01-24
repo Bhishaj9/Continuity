@@ -8,9 +8,8 @@ from google import genai
 from google.genai import types
 from config import Settings
 from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos
-
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
 def get_file_hash(filepath):
     """Calculates MD5 hash of file to prevent duplicate uploads."""
@@ -52,7 +51,7 @@ def analyze_only(path_a, path_c, job_id=None):
         {
             "analysis_a": "Brief description of Video A",
             "analysis_c": "Brief description of Video C",
-            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C. DO NOT use words like 'dissolve' or 'cut'."
+            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C. DO NOT use words like 'dissolve' or 'cut'. Focus on shape and texture transformation."
         }
         """
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
@@ -87,27 +86,32 @@ def analyze_only(path_a, path_c, job_id=None):
 def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
     update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
     full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
-    if neg:
-        full_prompt += f" --no {neg}"
+    if neg: full_prompt += f" --no {neg}"
 
     job_failed = False
     try:
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
+            
+            # 1. Start Long-Running Operation
             op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # Wait loop
-            while not op.done: time.sleep(5)
+            # 2. CRITICAL FIX: Use .result() to wait. 
+            # 'while not op.done' causes infinite loops if op doesn't auto-refresh.
+            if hasattr(op, 'result'):
+                result = op.result() 
+            else:
+                # Fallback for synchronous responses
+                result = op
             
-            if op.result and op.result.generated_videos:
-                vid = op.result.generated_videos[0]
+            if result and result.generated_videos:
+                vid = result.generated_videos[0]
                 bridge_path = None
                 
-                # Handle Video Download
                 if vid.video.uri:
                     bridge_path = tempfile.mktemp(suffix=".mp4")
                     download_blob(vid.video.uri, bridge_path)
@@ -115,33 +119,32 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     bridge_path = save_video_bytes(vid.video.video_bytes)
                 
                 if bridge_path:
-                    # --- STITCHING PHASE ---
-                    update_job_status(job_id, "stitching", 80, "Stitching Director's Cut...", video_url=bridge_path)
-                    final_cut_path = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
+                    # 3. Stitching Phase (Optional/Bypassable)
+                    update_job_status(job_id, "stitching", 80, "Checking Stitch Capability...", video_url=bridge_path)
                     
-                    try:
-                        # Attempt the new robust stitch
-                        final_output = stitch_videos(path_a, bridge_path, path_c, final_cut_path)
-                        # If successful, return BOTH urls
-                        update_job_status(job_id, "completed", 100, "Done!", video_url=bridge_path, merged_video_url=final_output)
-                    except Exception as e:
-                        # If stitch fails, log it and return ONLY the bridge. 
-                        # DO NOT FAIL THE JOB.
-                        logging.error(f"Stitch failed, returning bridge only: {e}")
-                        update_job_status(job_id, "completed", 100, "Stitch failed (Bridge Saved).", video_url=bridge_path)
+                    final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
+                    merged_path = stitch_videos(path_a, bridge_path, path_c, final_cut)
+                    
+                    if merged_path:
+                        msg = "Done! (Merged)"
+                    else:
+                        msg = "Done! (Bridge Only - No Stitch)"
+                        
+                    update_job_status(job_id, "completed", 100, msg, video_url=bridge_path, merged_video_url=merged_path)
                     return
             else:
                 raise Exception("Veo returned no videos.")
         else:
              raise Exception("GCP_PROJECT_ID not set.")
     except Exception as e:
-        logging.error(f"Gen Fail: {e}")
+        logging.error(f"Gen Job Failed: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
         job_failed = True
     finally:
+        # 4. DEAD MAN'S SWITCH
         if not job_failed:
             try:
                 with open(f"outputs/{job_id}.json", "r") as f:
                     if json.load(f).get("status") not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Zombie Job Terminated")
+                        update_job_status(job_id, "error", 0, "Job timed out (Zombie).")
             except: pass
