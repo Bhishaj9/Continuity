@@ -100,10 +100,9 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # Wait for Veo generation
-            while not op.done:
-                time.sleep(5)
-                
+            # Robust polling
+            while not op.done: time.sleep(5)
+            
             if op.result and op.result.generated_videos:
                 vid = op.result.generated_videos[0]
                 bridge_path = None
@@ -114,34 +113,33 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     bridge_path = save_video_bytes(vid.video.video_bytes)
                 
                 if bridge_path:
-                    # STITCHING PHASE
-                    update_job_status(job_id, "stitching", 80, "Stitching Director's Cut (A+B+C)...", video_url=bridge_path)
+                    # --- STITCHING TRY/EXCEPT BLOCK ---
+                    update_job_status(job_id, "stitching", 80, "Stitching Director's Cut...", video_url=bridge_path)
                     final_cut_path = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     
                     try:
-                        # This is the dangerous part where FFmpeg runs
+                        # Attempt Stitching with Timeout
                         final_output = stitch_videos(path_a, bridge_path, path_c, final_cut_path)
+                        # SUCCESS: Return Both
                         update_job_status(job_id, "completed", 100, "Done!", video_url=bridge_path, merged_video_url=final_output)
                     except Exception as e:
-                        # If stitch fails, log it but don't fail the whole job
-                        logger.error(f"Stitch error: {e}")
-                        update_job_status(job_id, "completed", 100, "Stitch failed, showing bridge only.", video_url=bridge_path)
+                        # FAILURE: Return Bridge Only (Don't crash the job!)
+                        logging.error(f"Stitch failed, continuing with bridge only. Error: {e}")
+                        update_job_status(job_id, "completed", 100, "Stitch failed (Bridge Saved).", video_url=bridge_path)
+                    # ----------------------------------
                     return
             else:
                 raise Exception("Veo returned no videos.")
         else:
-             raise Exception("GCP_PROJECT_ID is not set.")
+             raise Exception("GCP_PROJECT_ID not set.")
     except Exception as e:
-        logger.error(f"Generation Fatal Error: {e}")
+        logging.error(f"Gen Fatal: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
         job_failed = True
     finally:
-        # DEAD MAN'S SWITCH: Ensure job never hangs in 'processing'
         if not job_failed:
             try:
                 with open(f"outputs/{job_id}.json", "r") as f:
-                    status = json.load(f).get("status")
-                    if status not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Job terminated unexpectedly (Zombie Process).")
-            except Exception:
-                pass
+                    if json.load(f).get("status") not in ["completed", "error"]:
+                        update_job_status(job_id, "error", 0, "Job terminated unexpectedly.")
+            except: pass
