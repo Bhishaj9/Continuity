@@ -9,7 +9,7 @@ from google.genai import types
 from config import Settings
 from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 def get_file_hash(filepath):
     """Calculates MD5 hash of file to prevent duplicate uploads."""
