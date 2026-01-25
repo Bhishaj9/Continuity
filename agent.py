@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_file_hash(filepath):
+    """Calculates MD5 hash of file to prevent duplicate uploads."""
     hash_md5 = hashlib.md5()
     with open(filepath, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -22,6 +23,7 @@ def get_file_hash(filepath):
 
 
 def get_or_upload_file(client, filepath):
+    """Uploads file only if it doesn't already exist in Gemini (deduplication)."""
     file_hash = get_file_hash(filepath)
     try:
         for f in client.files.list(config={'page_size': 50}):
@@ -37,6 +39,7 @@ def get_or_upload_file(client, filepath):
 def analyze_only(path_a, path_c, job_id=None):
     update_job_status(job_id, "analyzing", 10, "Director checking file cache...")
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
+
     try:
         file_a = get_or_upload_file(client, path_a)
         file_c = get_or_upload_file(client, path_c)
@@ -53,27 +56,29 @@ def analyze_only(path_a, path_c, job_id=None):
         {
             "analysis_a": "Brief description of Video A",
             "analysis_c": "Brief description of Video C",
-            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C."
+            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C. DO NOT use words like 'dissolve' or 'cut'."
         }
         """
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
+        
         res = client.models.generate_content(
             model="gemini-2.0-flash-exp", 
             contents=[prompt, file_a, file_c],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
+        
         text = res.text.strip()
         if text.startswith("```json"): text = text[7:]
         elif text.startswith("```"): text = text[3:]
         if text.endswith("```"): text = text[:-3]
+        text = text.strip()
         
-        try: 
-            data = json.loads(text.strip())
-        except: 
-            data = {}
-        if isinstance(data, list): 
-            data = data[0] if len(data) > 0 else {}
-        
+        try:
+            data = json.loads(text)
+            if isinstance(data, list): data = data[0] if len(data) > 0 else {}
+        except json.JSONDecodeError:
+            return {"prompt": text, "status": "success"}
+
         return {
             "analysis_a": data.get("analysis_a", ""),
             "analysis_c": data.get("analysis_c", ""),
@@ -96,21 +101,20 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
             
-            # Start Job
+            # 1. Start Job
             op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            logger.info(f"Job started. Initial OP: {op}")
-            # UNIVERSAL POLLING LOOP
+            # 2. ACTIVE POLLING LOOP
             start_time = time.time()
             while True:
-                if time.time() - start_time > 300:  # 5 min timeout
-                    raise Exception("Generation timed out (5m).")
+                if time.time() - start_time > 180:  # 3 min timeout
+                    raise Exception("Generation timed out.")
                 
-                # 1. Check for 'done' status (Object or Dict)
+                # Check completion
                 is_done = False
                 if hasattr(op, 'done'): 
                     is_done = op.done
@@ -118,30 +122,29 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     is_done = True
                 
                 if is_done:
-                    logger.info("Job reported DONE.")
                     break
                 
                 logger.info("Waiting for Veo...")
                 time.sleep(10)
                 
-                # 2. Refresh Operation
+                # 3. FORCE REFRESH (Fixed Syntax)
                 try:
                     op_name = op.name if hasattr(op, 'name') else op.get('name')
                     if op_name:
-                        # Fetch fresh status
-                        op = client.operations.get(name=op_name)
-                except Exception as e:
-                    logger.warning(f"Refresh warning: {e}")
+                        # FIX: Use positional argument instead of 'name=' keyword
+                        op = client.operations.get(op_name)
+                except Exception as refresh_err:
+                    logger.warning(f"Refresh warning: {refresh_err}")
 
-            # 3. Retrieve Result
-            # Handle Object vs Dict vs Property vs Method
+            # 4. Get Result
             result = None
             if hasattr(op, 'result'):
+                # Safely handle method vs property
                 result = op.result() if callable(op.result) else op.result
             elif isinstance(op, dict):
                 result = op.get('result')
-                
-            # 4. Extract Video
+            
+            # 5. Extract Video
             generated_videos = None
             if result:
                 if hasattr(result, 'generated_videos'): 
@@ -150,11 +153,10 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     generated_videos = result.get('generated_videos')
             
             if generated_videos:
-                # Handle list access (Object or Dict items)
                 vid = generated_videos[0]
                 bridge_path = None
                 
-                # Extract URI/Bytes
+                # Handle Object vs Dict access
                 uri = getattr(vid.video, 'uri', None) if hasattr(vid, 'video') else vid.get('video', {}).get('uri')
                 video_bytes = getattr(vid.video, 'video_bytes', None) if hasattr(vid, 'video') else vid.get('video', {}).get('video_bytes')
                 
@@ -165,29 +167,22 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     bridge_path = save_video_bytes(video_bytes)
                 
                 if bridge_path:
-                    # STITCHING SUCCESS PATH
-                    update_job_status(job_id, "stitching", 85, "Stitching Final Cut...", video_url=bridge_path)
-                    final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
+                    # 6. STITCHING (With Fallback)
+                    update_job_status(job_id, "stitching", 80, "Checking Stitch Capability...", video_url=bridge_path)
                     
-                    # Run Stitcher (Will succeed if FFmpeg is installed)
+                    final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     merged_path = stitch_videos(path_a, bridge_path, path_c, final_cut)
                     
-                    if merged_path:
-                        msg = "Done! (Merged Successfully)"
-                        logger.info("Stitch SUCCESS.")
-                    else:
-                        msg = "Done! (Bridge Only - Stitch Skipped)"
-                        logger.warning("Stitch Skipped (Check FFmpeg).")
-                        
+                    msg = "Done! (Merged)" if merged_path else "Done! (Bridge Only)"
                     update_job_status(job_id, "completed", 100, msg, video_url=bridge_path, merged_video_url=merged_path)
                     return
             else:
-                raise Exception("Veo finished but returned no videos.")
+                raise Exception("Veo returned no videos.")
         else:
              raise Exception("GCP_PROJECT_ID not set.")
 
     except Exception as e:
-        logger.error(f"Gen Fatal Error: {e}")
+        logger.error(f"Gen Fatal: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
         job_failed = True
     finally:
@@ -195,6 +190,6 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             try:
                 with open(f"outputs/{job_id}.json", "r") as f:
                     if json.load(f).get("status") not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Job Process Terminated.")
+                        update_job_status(job_id, "error", 0, "Job timed out.")
             except: 
                 pass
