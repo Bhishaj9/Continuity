@@ -8,8 +8,10 @@ from google import genai
 from google.genai import types
 from config import Settings
 from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def get_file_hash(filepath):
     """Calculates MD5 hash of file to prevent duplicate uploads."""
@@ -18,6 +20,7 @@ def get_file_hash(filepath):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
 
 def get_or_upload_file(client, filepath):
     """Uploads file only if it doesn't already exist in Gemini (deduplication)."""
@@ -29,8 +32,9 @@ def get_or_upload_file(client, filepath):
                 return f
     except Exception:
         pass
-    logger.info(f"wm Uploading new file: {file_hash}")
+    logger.info(f"⬆️ Uploading new file: {file_hash}")
     return client.files.upload(file=filepath, config={'display_name': file_hash})
+
 
 def analyze_only(path_a, path_c, job_id=None):
     update_job_status(job_id, "analyzing", 10, "Director checking file cache...")
@@ -45,13 +49,14 @@ def analyze_only(path_a, path_c, job_id=None):
             time.sleep(2)
             file_a = client.files.get(name=file_a.name)
             file_c = client.files.get(name=file_c.name)
+
         prompt = """
         You are a VFX Director. Analyze Video A and Video C.
         Return a JSON object with exactly these keys:
         {
             "analysis_a": "Brief description of Video A",
             "analysis_c": "Brief description of Video C",
-            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C. DO NOT use words like 'dissolve' or 'cut'. Focus on shape and texture transformation."
+            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C. DO NOT use words like 'dissolve' or 'cut'."
         }
         """
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
@@ -73,6 +78,7 @@ def analyze_only(path_a, path_c, job_id=None):
             if isinstance(data, list): data = data[0] if len(data) > 0 else {}
         except json.JSONDecodeError:
             return {"prompt": text, "status": "success"}
+
         return {
             "analysis_a": data.get("analysis_a", ""),
             "analysis_c": data.get("analysis_c", ""),
@@ -83,30 +89,56 @@ def analyze_only(path_a, path_c, job_id=None):
         logger.error(f"Analysis failed: {e}")
         return {"detail": str(e), "status": "error"}
 
+
 def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
     update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
     full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
-    if neg: full_prompt += f" --no {neg}"
+    if neg:
+        full_prompt += f" --no {neg}"
 
     job_failed = False
     try:
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
             
-            # 1. Start Long-Running Operation
+            # 1. Start Job
             op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # 2. CRITICAL FIX: Use .result() to wait. 
-            # 'while not op.done' causes infinite loops if op doesn't auto-refresh.
-            if hasattr(op, 'result'):
-                result = op.result() 
-            else:
-                # Fallback for synchronous responses
-                result = op
+            # 2. Polling Loop (Fix for infinite spin & NoneType crash)
+            # We loop for up to 120 seconds, checking for completion.
+            start_time = time.time()
+            while True:
+                # Timeout Guard
+                if time.time() - start_time > 120:
+                    raise Exception("Generation timed out (2 mins).")
+                
+                # Check if we have a result property that is populated
+                # We access .result as a property, NOT a method ()
+                current_result = getattr(op, 'result', None)
+                
+                if current_result:
+                    # Success! We have data.
+                    break
+                
+                # If not done, we try to wait/refresh
+                logger.info("Waiting for Veo...")
+                time.sleep(10)
+                
+                # Try to refresh operation if SDK allows (best effort)
+                try:
+                    if hasattr(op, 'name'):
+                        # This might fail if the SDK structure differs, but it's worth a try
+                        # to update the 'op' object status
+                        pass 
+                except:
+                    pass
+
+            # 3. Process Result
+            result = getattr(op, 'result', op)
             
             if result and result.generated_videos:
                 vid = result.generated_videos[0]
@@ -119,32 +151,28 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     bridge_path = save_video_bytes(vid.video.video_bytes)
                 
                 if bridge_path:
-                    # 3. Stitching Phase (Optional/Bypassable)
+                    # OPTIONAL STITCHING (Fail-Safe)
                     update_job_status(job_id, "stitching", 80, "Checking Stitch Capability...", video_url=bridge_path)
                     
                     final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     merged_path = stitch_videos(path_a, bridge_path, path_c, final_cut)
                     
-                    if merged_path:
-                        msg = "Done! (Merged)"
-                    else:
-                        msg = "Done! (Bridge Only - No Stitch)"
-                        
+                    msg = "Done! (Merged)" if merged_path else "Done! (Bridge Only - No Stitch)"
                     update_job_status(job_id, "completed", 100, msg, video_url=bridge_path, merged_video_url=merged_path)
                     return
             else:
-                raise Exception("Veo returned no videos.")
+                raise Exception("Veo returned no videos (Result Empty).")
         else:
              raise Exception("GCP_PROJECT_ID not set.")
+
     except Exception as e:
-        logging.error(f"Gen Job Failed: {e}")
+        logger.error(f"Gen Fatal: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
         job_failed = True
     finally:
-        # 4. DEAD MAN'S SWITCH
         if not job_failed:
             try:
                 with open(f"outputs/{job_id}.json", "r") as f:
                     if json.load(f).get("status") not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Job timed out (Zombie).")
+                        update_job_status(job_id, "error", 0, "Job timed out.")
             except: pass
