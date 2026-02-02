@@ -105,34 +105,47 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
+            # 1. ROBUST NAME EXTRACTION (Run ONCE, before loop)
+            # This handles if 'op' is returned as a string ID or an object
+            if isinstance(op, str):
+                op_name = op
+            elif hasattr(op, 'name'):
+                op_name = op.name
+            elif isinstance(op, dict) and 'name' in op:
+                op_name = op['name']
+            else:
+                # Fallback: try to cast to string if it's some other type
+                op_name = str(op)
+            
+            logger.info(f"Operation started with name: {op_name}")
+            
             start_time = time.time()
             while True:
                 if time.time() - start_time > 300: 
                     raise Exception("Generation timed out (5m).")
                 
-                # FIX: Handle string vs object for operation name
-                op_name = op if isinstance(op, str) else getattr(op, 'name', None)
+                # 2. REFRESH USING THE STRING NAME ONLY
+                try:
+                    current_op = client.operations.get(op_name)
+                except Exception as e:
+                    logger.warning(f"Refresh failed: {e}")
+                    current_op = None
                 
-                # Check done status
+                # 3. CHECK STATUS ON THE REFRESHED OBJECT
                 is_done = False
-                if hasattr(op, 'done'): is_done = op.done
-                elif isinstance(op, dict) and op.get('done'): is_done = True
+                if current_op:
+                    if hasattr(current_op, 'done'): is_done = current_op.done
+                    elif isinstance(current_op, dict): is_done = current_op.get('done', False)
                 
                 if is_done:
                     logger.info("Job reported DONE.")
+                    op = current_op  # Update op to the final finished state
                     break
                 
                 logger.info("Waiting for Veo...")
                 time.sleep(10)
-                
-                try:
-                    if op_name:
-                        # Use positional argument for refresh
-                        op = client.operations.get(op_name)
-                except Exception as e:
-                    logger.warning(f"Refresh warning: {e}")
 
-            # Retrieve Result
+            # Retrieve Result from the final op
             result = None
             if hasattr(op, 'result'):
                 result = op.result() if callable(op.result) else op.result
