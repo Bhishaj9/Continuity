@@ -99,14 +99,15 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
     try:
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
+            
+            # 1. Start Job
             op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # 1. ROBUST NAME EXTRACTION (Run ONCE, before loop)
-            # This handles if 'op' is returned as a string ID or an object
+            # 2. Extract Operation Name (Handle String vs Object)
             if isinstance(op, str):
                 op_name = op
             elif hasattr(op, 'name'):
@@ -114,43 +115,47 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             elif isinstance(op, dict) and 'name' in op:
                 op_name = op['name']
             else:
-                # Fallback: try to cast to string if it's some other type
+                # Last resort cast
                 op_name = str(op)
             
-            logger.info(f"Operation started with name: {op_name}")
+            logger.info(f"Tracking Operation ID: {op_name}")
             
+            # 3. Active Polling Loop
             start_time = time.time()
+            final_result_op = None
+            
             while True:
                 if time.time() - start_time > 300: 
                     raise Exception("Generation timed out (5m).")
                 
-                # 2. REFRESH USING THE STRING NAME ONLY
                 try:
+                    # Always fetch fresh status using the ID
                     current_op = client.operations.get(op_name)
                 except Exception as e:
                     logger.warning(f"Refresh failed: {e}")
-                    current_op = None
+                    time.sleep(10)
+                    continue
                 
-                # 3. CHECK STATUS ON THE REFRESHED OBJECT
+                # Check completion
                 is_done = False
-                if current_op:
-                    if hasattr(current_op, 'done'): is_done = current_op.done
-                    elif isinstance(current_op, dict): is_done = current_op.get('done', False)
+                if hasattr(current_op, 'done'): is_done = current_op.done
+                elif isinstance(current_op, dict): is_done = current_op.get('done')
                 
                 if is_done:
                     logger.info("Job reported DONE.")
-                    op = current_op  # Update op to the final finished state
+                    final_result_op = current_op
                     break
                 
                 logger.info("Waiting for Veo...")
                 time.sleep(10)
-
-            # Retrieve Result from the final op
+            
+            # 4. Retrieve Result
             result = None
-            if hasattr(op, 'result'):
-                result = op.result() if callable(op.result) else op.result
-            elif isinstance(op, dict):
-                result = op.get('result')
+            if final_result_op:
+                if hasattr(final_result_op, 'result'):
+                    result = final_result_op.result() if callable(final_result_op.result) else final_result_op.result
+                elif isinstance(final_result_op, dict):
+                    result = final_result_op.get('result')
                 
             generated_videos = None
             if result:
