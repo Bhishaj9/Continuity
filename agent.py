@@ -37,9 +37,11 @@ def get_or_upload_file(client, filepath):
 def analyze_only(path_a, path_c, job_id=None):
     update_job_status(job_id, "analyzing", 10, "Director checking file cache...")
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
+
     try:
         file_a = get_or_upload_file(client, path_a)
         file_c = get_or_upload_file(client, path_c)
+        
         while file_a.state.name == "PROCESSING" or file_c.state.name == "PROCESSING":
             update_job_status(job_id, "analyzing", 20, "Google processing video...")
             time.sleep(2)
@@ -58,6 +60,7 @@ def analyze_only(path_a, path_c, job_id=None):
         if text.startswith("```json"): text = text[7:]
         elif text.startswith("```"): text = text[3:]
         if text.endswith("```"): text = text[:-3]
+        
         try: data = json.loads(text.strip())
         except: data = {}
         if isinstance(data, list): data = data[0] if len(data) > 0 else {}
@@ -83,63 +86,57 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         if Settings.GCP_PROJECT_ID:
             client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
             
+            # 1. Start Job
             op = client.models.generate_videos(
                 model='veo-3.1-generate-preview', 
                 prompt=full_prompt, 
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # --- DEBUG LOGGING ---
-            logger.info(f"DEBUG: OP Type: {type(op)}")
-            if hasattr(client, 'operations'):
-                logger.info(f"DEBUG: Client Ops Dir: {dir(client.operations)}")
-            
+            # 2. Extract ID String
             op_name = str(op)
             if hasattr(op, 'name'): op_name = op.name
             elif isinstance(op, dict) and 'name' in op: op_name = op['name']
             
             logger.info(f"Tracking ID: {op_name}")
             
+            # 3. Poll for Completion
             start_time = time.time()
             while True:
-                if time.time() - start_time > 300: raise Exception("Generation timed out.")
+                if time.time() - start_time > 300: 
+                    raise Exception("Generation timed out.")
                 
-                current_op = None
-                
-                # Strategy 1: Try keyword argument (Standard)
                 try:
-                    current_op = client.operations.get(name=op_name)
-                except Exception as e1:
-                    # Strategy 2: Try positional argument (Fallback)
-                    try:
-                        current_op = client.operations.get(op_name)
-                    except Exception as e2:
-                        logger.warning(f"Refresh failed S1: {e1} | S2: {e2}")
+                    # FIX: Use positional argument for get()
+                    current_op = client.operations.get(op_name)
+                except Exception as e:
+                    logger.warning(f"Refresh failed: {e}")
+                    time.sleep(10)
+                    continue
                 
                 # Check Status
                 is_done = False
-                if current_op:
-                    if hasattr(current_op, 'done'): is_done = current_op.done
-                    elif isinstance(current_op, dict): is_done = current_op.get('done')
+                if hasattr(current_op, 'done'): is_done = current_op.done
+                elif isinstance(current_op, dict): is_done = current_op.get('done')
                 
                 if is_done:
                     logger.info("Job DONE.")
-                    op = current_op  # Update op for result extraction
+                    op = current_op 
                     break
                 
-                logger.info("Waiting...")
+                logger.info("Waiting for Veo...")
                 time.sleep(10)
             
-            # Result Extraction (Safe)
+            # 4. Get Result
             result = None
             if hasattr(op, 'result'):
-                # Try accessing as property first, then method
                 try: 
                     res_val = op.result
                     if callable(res_val): result = res_val()
                     else: result = res_val
                 except: pass
-            elif isinstance(op, dict): result = op.get('result')
+            elif isinstance(op, dict): 
+                result = op.get('result')
             
             generated_videos = None
             if result:
@@ -163,6 +160,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     update_job_status(job_id, "stitching", 85, "Stitching...", video_url=bridge_path)
                     final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     merged_path = stitch_videos(path_a, bridge_path, path_c, final_cut)
+                    
                     msg = "Done! (Merged)" if merged_path else "Done! (Bridge Only)"
                     update_job_status(job_id, "completed", 100, msg, video_url=bridge_path, merged_video_url=merged_path)
                     return
@@ -172,7 +170,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
              raise Exception("GCP_PROJECT_ID not set.")
 
     except Exception as e:
-        logger.error(f"Fatal: {e}")
+        logger.error(f"Gen Fatal: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
         job_failed = True
     finally:
@@ -180,5 +178,5 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             try:
                 with open(f"outputs/{job_id}.json", "r") as f:
                     if json.load(f).get("status") not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Terminated.")
+                        update_job_status(job_id, "error", 0, "Job timed out.")
             except: pass
