@@ -458,8 +458,16 @@
                 });
                 if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
+                const pollStartTime = Date.now();
                 const poll = setInterval(async () => {
-                    failureCount = window.fc || 0;
+                    // DEAD MAN'S SWITCH: 180s timeout
+                    if (Date.now() - pollStartTime > 180000) {
+                        clearInterval(poll);
+                        alert("Timeout: Server took too long (3 min). Job may still be processing in background.");
+                        btn.disabled = false;
+                        btn.innerHTML = `<span class="material-symbols-outlined">error</span> Timeout`;
+                        return;
+                    }
                     try {
                         const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
                         if (sRes.ok) {
