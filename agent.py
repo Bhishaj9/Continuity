@@ -107,7 +107,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 config=types.GenerateVideosConfig(number_of_videos=1)
             )
             
-            # 2. Extract Operation Name (Handle String vs Object)
+            # 2. Extract Operation ID (Handle String vs Object)
             if isinstance(op, str):
                 op_name = op
             elif hasattr(op, 'name'):
@@ -115,8 +115,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             elif isinstance(op, dict) and 'name' in op:
                 op_name = op['name']
             else:
-                # Last resort cast
-                op_name = str(op)
+                op_name = str(op)  # Fallback
             
             logger.info(f"Tracking Operation ID: {op_name}")
             
@@ -129,7 +128,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     raise Exception("Generation timed out (5m).")
                 
                 try:
-                    # Always fetch fresh status using the ID
+                    # Always fetch fresh status using the ID string
                     current_op = client.operations.get(op_name)
                 except Exception as e:
                     logger.warning(f"Refresh failed: {e}")
@@ -153,6 +152,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             result = None
             if final_result_op:
                 if hasattr(final_result_op, 'result'):
+                    # Handle method vs property
                     result = final_result_op.result() if callable(final_result_op.result) else final_result_op.result
                 elif isinstance(final_result_op, dict):
                     result = final_result_op.get('result')
@@ -166,6 +166,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 vid = generated_videos[0]
                 bridge_path = None
                 
+                # Handle Object vs Dict access
                 uri = getattr(vid.video, 'uri', None) if hasattr(vid, 'video') else vid.get('video', {}).get('uri')
                 video_bytes = getattr(vid.video, 'video_bytes', None) if hasattr(vid, 'video') else vid.get('video', {}).get('video_bytes')
 
@@ -176,6 +177,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     bridge_path = save_video_bytes(video_bytes)
                 
                 if bridge_path:
+                    # 5. Stitching (Fail-Safe)
                     update_job_status(job_id, "stitching", 85, "Stitching Final Cut...", video_url=bridge_path)
                     final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
                     
