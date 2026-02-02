@@ -62,7 +62,7 @@ def analyze_only(path_a, path_c, job_id=None):
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
         
         res = client.models.generate_content(
-            model="gemini-2.0-flash-exp", 
+            model="gemini-2.0-flash", 
             contents=[prompt, file_a, file_c],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
