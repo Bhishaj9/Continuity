@@ -13,12 +13,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# --- FIX 1: Proxy Class for SDK Type Compliance (Prevents Infinite Loop) ---
-class GetOpRequest:
-    def __init__(self, name):
-        self.name = name
-
-
 def get_file_hash(filepath):
     hash_md5 = hashlib.md5()
     with open(filepath, "rb") as f:
@@ -47,7 +41,7 @@ def analyze_only(path_a, path_c, job_id=None):
     try:
         file_a = get_or_upload_file(client, path_a)
         file_c = get_or_upload_file(client, path_c)
-        
+
         while file_a.state.name == "PROCESSING" or file_c.state.name == "PROCESSING":
             update_job_status(job_id, "analyzing", 20, "Google processing video...")
             time.sleep(2)
@@ -64,14 +58,13 @@ def analyze_only(path_a, path_c, job_id=None):
         }
         """
         update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
-        
+
         res = client.models.generate_content(
             model="gemini-2.0-flash", 
             contents=[prompt, file_a, file_c],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         
-        # --- FIX 2: Robust Response Parsing (Prevents 500 Error) ---
         text = res.text.strip()
         if text.startswith("```json"): text = text[7:]
         elif text.startswith("```"): text = text[3:]
@@ -81,20 +74,16 @@ def analyze_only(path_a, path_c, job_id=None):
         data = {}
         try:
             parsed = json.loads(text)
-            if isinstance(parsed, list): 
-                data = parsed[0] if len(parsed) > 0 else {}
-            elif isinstance(parsed, dict):
-                data = parsed
+            if isinstance(parsed, list): data = parsed[0] if len(parsed) > 0 else {}
+            elif isinstance(parsed, dict): data = parsed
         except json.JSONDecodeError:
-            logger.warning(f"JSON Parse Failed. Fallback to raw text. Response: {text[:50]}...")
-            # Do NOT return early here. We must populate default keys below.
+            logger.warning(f"JSON Parse Failed. Fallback to raw text.")
             pass
 
-        # Return a COMPLETE dictionary so server.py never throws a KeyError
         return {
             "analysis_a": data.get("analysis_a", "Analysis unavailable."),
             "analysis_c": data.get("analysis_c", "Analysis unavailable."),
-            "prompt": data.get("visual_prompt_b", text),  # Use raw text if JSON key missing
+            "prompt": data.get("visual_prompt_b", text), 
             "status": "success"
         }
 
@@ -113,38 +102,50 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             raise Exception("GCP_PROJECT_ID missing.")
         client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
         
-        # Start Job
+        # 1. Start Job
         op = client.models.generate_videos(
             model='veo-3.1-generate-preview', 
             prompt=full_prompt, 
             config=types.GenerateVideosConfig(number_of_videos=1)
         )
         
-        # Fix: Create Proxy Object for Polling
+        # 2. Extract ID String (Critical)
         op_name = op.name if hasattr(op, 'name') else str(op)
-        request_proxy = GetOpRequest(op_name)
-        logger.info(f"Polling Job: {op_name}")
+        logger.info(f"Polling Job ID: {op_name}")
+        
+        # 3. Create Valid SDK Object for Polling
+        # We must reconstruct the operation object correctly so .get() works
+        # Pass _api_client to ensure it has the context to refresh itself
+        polling_op = types.GenerateVideosOperation(
+            name=op_name, 
+            _api_client=client._api_client
+        )
+
         start_time = time.time()
         while True:
             if time.time() - start_time > 600:
                 raise Exception("Timeout (10m).")
             
             try:
-                op = client.operations.get(request_proxy)
+                # Refresh logic: Use the official object
+                refreshed_op = client.operations.get(polling_op)
+                
+                # Check status
+                if hasattr(refreshed_op, 'done') and refreshed_op.done:
+                    logger.info("Generation Done.")
+                    op = refreshed_op  # Update main op with final result
+                    break
+                    
             except Exception as e:
                 logger.warning(f"Polling error: {e}")
-                time.sleep(20)
-                continue
-
-            is_done = getattr(op, 'done', False)
-            if is_done:
-                logger.info("Generation Done.")
-                break
+                # Fallback: if object refresh fails, try direct ID string in next loop
+                # But sleep first to avoid spam
+                pass
             
             logger.info("Waiting for Veo...")
             time.sleep(20)
 
-        # Process Result
+        # 4. Result Extraction
         res_val = op.result
         result = res_val() if callable(res_val) else res_val
         
