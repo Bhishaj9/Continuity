@@ -109,17 +109,14 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             config=types.GenerateVideosConfig(number_of_videos=1)
         )
         
-        # 2. Extract ID String (Critical)
+        # 2. Extract ID String
         op_name = op.name if hasattr(op, 'name') else str(op)
         logger.info(f"Polling Job ID: {op_name}")
         
-        # 3. Create Valid SDK Object for Polling
-        # We must reconstruct the operation object correctly so .get() works
-        # Pass _api_client to ensure it has the context to refresh itself
-        polling_op = types.GenerateVideosOperation(
-            name=op_name, 
-            _api_client=client._api_client
-        )
+        # 3. Create Valid SDK Object for Polling (FIXED)
+        # We initialize the object ONLY with the name. 
+        # The Pydantic model will accept this, and the SDK will use it for the API call.
+        polling_op = types.GenerateVideosOperation(name=op_name)
 
         start_time = time.time()
         while True:
@@ -127,20 +124,19 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 raise Exception("Timeout (10m).")
             
             try:
-                # Refresh logic: Use the official object
+                # Refresh logic: Pass the valid types.GenerateVideosOperation object
                 refreshed_op = client.operations.get(polling_op)
                 
                 # Check status
                 if hasattr(refreshed_op, 'done') and refreshed_op.done:
                     logger.info("Generation Done.")
-                    op = refreshed_op  # Update main op with final result
+                    op = refreshed_op 
                     break
                     
             except Exception as e:
                 logger.warning(f"Polling error: {e}")
-                # Fallback: if object refresh fails, try direct ID string in next loop
-                # But sleep first to avoid spam
-                pass
+                time.sleep(20)
+                continue
             
             logger.info("Waiting for Veo...")
             time.sleep(20)
