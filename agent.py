@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Fix class to satisfy SDK requirements for polling
+# --- FIX 1: Proxy Class for SDK Type Compliance (Prevents Infinite Loop) ---
 class GetOpRequest:
     def __init__(self, name):
         self.name = name
@@ -36,42 +36,83 @@ def get_or_upload_file(client, filepath):
                 return f
     except Exception:
         pass
+    logger.info(f"⬆️ Uploading new file: {file_hash}")
     return client.files.upload(file=filepath, config={'display_name': file_hash})
 
 
 def analyze_only(path_a, path_c, job_id=None):
-    update_job_status(job_id, "analyzing", 10, "Analyzing scenes...")
+    update_job_status(job_id, "analyzing", 10, "Director checking file cache...")
     client = genai.Client(api_key=Settings.GOOGLE_API_KEY)
+
     try:
         file_a = get_or_upload_file(client, path_a)
         file_c = get_or_upload_file(client, path_c)
+        
         while file_a.state.name == "PROCESSING" or file_c.state.name == "PROCESSING":
+            update_job_status(job_id, "analyzing", 20, "Google processing video...")
             time.sleep(2)
             file_a = client.files.get(name=file_a.name)
             file_c = client.files.get(name=file_c.name)
 
+        prompt = """
+        You are a VFX Director. Analyze Video A and Video C.
+        Return a JSON object with exactly these keys:
+        {
+            "analysis_a": "Brief description of Video A",
+            "analysis_c": "Brief description of Video C",
+            "visual_prompt_b": "A surreal, seamless morphing prompt that transforms A into C."
+        }
+        """
+        update_job_status(job_id, "analyzing", 30, "Director drafting creative morph...")
+        
         res = client.models.generate_content(
             model="gemini-2.0-flash", 
-            contents=["Analyze Video A and C. Return JSON with analysis_a, analysis_c, visual_prompt_b.", file_a, file_c],
+            contents=[prompt, file_a, file_c],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
+        
+        # --- FIX 2: Robust Response Parsing (Prevents 500 Error) ---
         text = res.text.strip()
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0]
-        data = json.loads(text)
-        return {"prompt": data.get("visual_prompt_b", text), "status": "success"}
+        if text.startswith("```json"): text = text[7:]
+        elif text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        text = text.strip()
+        
+        data = {}
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list): 
+                data = parsed[0] if len(parsed) > 0 else {}
+            elif isinstance(parsed, dict):
+                data = parsed
+        except json.JSONDecodeError:
+            logger.warning(f"JSON Parse Failed. Fallback to raw text. Response: {text[:50]}...")
+            # Do NOT return early here. We must populate default keys below.
+            pass
+
+        # Return a COMPLETE dictionary so server.py never throws a KeyError
+        return {
+            "analysis_a": data.get("analysis_a", "Analysis unavailable."),
+            "analysis_c": data.get("analysis_c", "Analysis unavailable."),
+            "prompt": data.get("visual_prompt_b", text),  # Use raw text if JSON key missing
+            "status": "success"
+        }
+
     except Exception as e:
+        logger.error(f"Analysis failed: {e}")
         return {"detail": str(e), "status": "error"}
 
 
 def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
     update_job_status(job_id, "generating", 50, "Production started...")
     full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
+
+    job_failed = False
     try:
         if not Settings.GCP_PROJECT_ID:
             raise Exception("GCP_PROJECT_ID missing.")
         client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
-
+        
         # Start Job
         op = client.models.generate_videos(
             model='veo-3.1-generate-preview', 
@@ -79,7 +120,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             config=types.GenerateVideosConfig(number_of_videos=1)
         )
         
-        # Extract ID and create the proxy object for the SDK
+        # Fix: Create Proxy Object for Polling
         op_name = op.name if hasattr(op, 'name') else str(op)
         request_proxy = GetOpRequest(op_name)
         logger.info(f"Polling Job: {op_name}")
@@ -88,15 +129,13 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             if time.time() - start_time > 600:
                 raise Exception("Timeout (10m).")
             
-            # REFRESH logic using the proxy object
             try:
                 op = client.operations.get(request_proxy)
             except Exception as e:
                 logger.warning(f"Polling error: {e}")
                 time.sleep(20)
                 continue
-            
-            # Check Status
+
             is_done = getattr(op, 'done', False)
             if is_done:
                 logger.info("Generation Done.")
@@ -104,7 +143,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             
             logger.info("Waiting for Veo...")
             time.sleep(20)
-        
+
         # Process Result
         res_val = op.result
         result = res_val() if callable(res_val) else res_val
@@ -119,13 +158,23 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 bridge_path = save_video_bytes(vid.video.video_bytes)
             
             update_job_status(job_id, "stitching", 85, "Stitching...")
-            final_cut = os.path.join("outputs", f"{job_id}_final.mp4")
+            final_cut = os.path.join("outputs", f"{job_id}_merged_temp.mp4")
             merged_path = stitch_videos(path_a, bridge_path, path_c, final_cut)
             
             msg = "Done! (Merged)" if merged_path else "Done! (Bridge Only)"
             update_job_status(job_id, "completed", 100, msg, video_url=bridge_path, merged_video_url=merged_path)
         else:
             raise Exception("No video output.")
+
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Gen Error: {e}")
         update_job_status(job_id, "error", 0, str(e))
+        job_failed = True
+    finally:
+        if not job_failed:
+            try:
+                with open(f"outputs/{job_id}.json", "r") as f:
+                    if json.load(f).get("status") not in ["completed", "error"]:
+                        update_job_status(job_id, "error", 0, "Terminated.")
+            except:
+                pass
