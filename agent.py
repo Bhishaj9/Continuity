@@ -93,13 +93,15 @@ def analyze_only(path_a, path_c, job_id=None):
 
 
 def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
-    update_job_status(job_id, "generating", 50, "Production started...")
-    full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
-
-    job_failed = False
     try:
+        update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
+        full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
+        if neg:
+            full_prompt += f" --no {neg}"
+
         if not Settings.GCP_PROJECT_ID:
             raise Exception("GCP_PROJECT_ID missing.")
+            
         client = genai.Client(vertexai=True, project=Settings.GCP_PROJECT_ID, location=Settings.GCP_LOCATION)
         
         # 1. Start Job
@@ -113,9 +115,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         op_name = op.name if hasattr(op, 'name') else str(op)
         logger.info(f"Polling Job ID: {op_name}")
         
-        # 3. Create Valid SDK Object for Polling (FIXED)
-        # We initialize the object ONLY with the name. 
-        # The Pydantic model will accept this, and the SDK will use it for the API call.
+        # 3. Create Valid SDK Object for Polling
         polling_op = types.GenerateVideosOperation(name=op_name)
 
         start_time = time.time()
@@ -164,14 +164,20 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             raise Exception("No video output.")
 
     except Exception as e:
-        logger.error(f"Gen Error: {e}")
-        update_job_status(job_id, "error", 0, str(e))
-        job_failed = True
+        logger.error(f"Worker crashed: {e}")
+        update_job_status(job_id, "error", 0, f"Error: {e}")
+
     finally:
-        if not job_failed:
-            try:
-                with open(f"outputs/{job_id}.json", "r") as f:
-                    if json.load(f).get("status") not in ["completed", "error"]:
-                        update_job_status(job_id, "error", 0, "Terminated.")
-            except:
-                pass
+        # Enforce Terminal State
+        try:
+            status_file = f"outputs/{job_id}.json"
+            if os.path.exists(status_file):
+                with open(status_file, "r") as f:
+                    data = json.load(f)
+
+                status = data.get("status")
+                if status not in ["completed", "error"]:
+                    logger.warning(f"Job {job_id} left in non-terminal state ({status}). Forcing error.")
+                    update_job_status(job_id, "error", 0, "Job terminated unexpectedly.")
+        except Exception as e:
+            logger.error(f"Final safety net failed: {e}")
