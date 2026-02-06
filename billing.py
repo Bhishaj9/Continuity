@@ -119,6 +119,30 @@ def reconcile_reservations():
         ).all()
 
         for txn in stuck_txns:
+            # Check associated job status
+            should_refund = False
+            if txn.reference_id:
+                job = db.query(Job).filter(Job.id == txn.reference_id).first()
+                if not job:
+                    should_refund = True
+                else:
+                    is_failed = job.status in ['error', 'failed']
+                    is_stale = False
+                    if job.updated_at and (datetime.utcnow() - job.updated_at) > timedelta(hours=1):
+                        is_stale = True
+
+                    if job.status == 'completed':
+                        should_refund = False
+                    elif is_failed or is_stale:
+                        should_refund = True
+                    else:
+                        should_refund = False
+            else:
+                should_refund = True
+
+            if not should_refund:
+                continue
+
             user = db.query(User).filter(User.id == txn.user_id).with_for_update().first()
             if not user:
                 continue
@@ -233,7 +257,7 @@ def settle_transaction(job_id):
         txn = db.query(Transaction).filter(
             Transaction.reference_id == job_id,
             Transaction.type == 'reserve'
-        ).first()
+        ).with_for_update().first()
         if txn:
             txn.status = 'settled'
             db.commit()

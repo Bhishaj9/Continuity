@@ -32,6 +32,13 @@ class Settings:
     @classmethod
     def validate(cls):
         """Validates critical environment variables."""
+        # Check Production Mode DB Policy
+        app_env = os.getenv("APP_ENV", "").lower()
+        if app_env == "production":
+            db_url = os.getenv("DATABASE_URL", "").lower()
+            if not db_url or "sqlite" in db_url:
+                raise EnvironmentError("Production Mode requires PostgreSQL.")
+
         if not cls.GOOGLE_API_KEY:
             raise ValueError("GOOGLE_API_KEY is missing from environment variables.")
         if not cls.HF_TOKEN:
