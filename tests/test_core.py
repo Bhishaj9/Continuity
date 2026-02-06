@@ -80,6 +80,7 @@ def mock_stripe():
     with patch("billing.stripe") as mock:
         mock.checkout.Session.create.return_value = MagicMock(url="http://checkout.url")
         mock.Webhook.construct_event.return_value = {
+            'id': 'evt_mock',
             'type': 'checkout.session.completed',
             'data': {'object': {'client_reference_id': '1', 'amount_total': 1000, 'id': 'sess_123', 'customer': 'cus_123'}}
         }
@@ -273,10 +274,11 @@ def test_generate_insufficient_funds(mock_add_job, mock_verify_token):
              "video_a_path": "outputs/a.mp4",
              "video_c_path": "outputs/c.mp4"
          }
+         # Now returns 200 because check is async
          response = client.post("/generate", json=payload, headers={"Authorization": "Bearer token"})
 
-         assert response.status_code == 402 # Payment Required
-         mock_add_job.assert_not_called()
+         assert response.status_code == 200
+         mock_add_job.assert_called_once()
 
 @patch("server.job_queue.add_job")
 def test_generate_reserve_success(mock_add_job, mock_verify_token):
@@ -302,38 +304,45 @@ def test_generate_reserve_success(mock_add_job, mock_verify_token):
          assert response.status_code == 200
          mock_add_job.assert_called_once()
 
-         # Check balance deducted
+         # Check balance NOT deducted yet (async)
          db = TestingSessionLocal()
          user = db.query(User).filter(User.username == "test@example.com").first()
-         assert user.balance == 10 # 20 - 10
-         txn = db.query(Transaction).filter(Transaction.user_id == user.id, Transaction.type == "reserve").first()
-         assert txn is not None
-         assert txn.amount == -10
+         assert user.balance == 20
          db.close()
 
 def test_generate_refund_on_failure(mock_genai_client):
-    # Setup DB with user and job that was reserved
+    # Setup DB with user and job
     db = TestingSessionLocal()
-    user = User(username="fail@example.com", balance=0)
+    user = User(username="fail@example.com", balance=100) # Give enough balance for reservation
     db.add(user)
     db.commit()
     job = Job(id="fail_job", user_id=user.id, status="generating")
     db.add(job)
     db.commit()
+
+    # Get ID before closing session to avoid DetachedInstanceError
+    user_id = user.id
     db.close()
 
     # Mock GenAI to raise exception
     mock_genai_client.return_value.models.generate_videos.side_effect = Exception("Veo Error")
 
     with patch("agent.Settings.GCP_PROJECT_ID", "dummy"):
-        generate_only("prompt", "a", "c", "fail_job", "style", "audio", "neg", 5.0, 5)
+        # Pass user_id
+        generate_only("prompt", "a", "c", "fail_job", "style", "audio", "neg", 5.0, 5, user_id)
 
-    # Check refund
+    # Check refund: Balance should be 100 - 10 (reserve) + 10 (refund) = 100
     db = TestingSessionLocal()
     user = db.query(User).filter(User.username == "fail@example.com").first()
-    assert user.balance == 10 # Refunded 10
-    txn = db.query(Transaction).filter(Transaction.user_id == user.id, Transaction.type == "refund").first()
-    assert txn is not None
+    assert user.balance == 100
+
+    # Check transactions: 1 reserve, 1 refund
+    reserve = db.query(Transaction).filter(Transaction.user_id == user.id, Transaction.type == "reserve").first()
+    refund = db.query(Transaction).filter(Transaction.user_id == user.id, Transaction.type == "refund").first()
+    assert reserve is not None
+    assert refund is not None
+    assert reserve.status == "refunded"
+    assert refund.status == "settled"
     db.close()
 
 # --- Agent Tests ---
@@ -362,6 +371,14 @@ def test_analyze_only(mock_genai_client, mock_update_status, mock_sleep):
     assert mock_update_status.call_count >= 1
 
 def test_generate_only(mock_genai_client, mock_stitch, mock_update_status, mock_sleep):
+    # Setup User for reservation
+    db = TestingSessionLocal()
+    user = User(username="worker@test.com", balance=100)
+    db.add(user)
+    db.commit()
+    user_id = user.id
+    db.close()
+
     # Patch get_job_from_db to return a completed status so safety net doesn't trigger error update
     with patch("agent.get_job_from_db", return_value={"status": "completed"}):
         client_instance = mock_genai_client.return_value
@@ -396,7 +413,8 @@ def test_generate_only(mock_genai_client, mock_stitch, mock_update_status, mock_
                          audio="Soundtrack",
                          neg="blur",
                          guidance=5.0,
-                         motion=5
+                         motion=5,
+                         user_id=user_id
                      )
 
                      # Verify final status update
@@ -404,3 +422,9 @@ def test_generate_only(mock_genai_client, mock_stitch, mock_update_status, mock_
                          "job_123", "completed", 100, "Done! (Merged)",
                          video_url=ANY, merged_video_url="outputs/merged.mp4"
                      )
+
+                     # Verify settled
+                     db = TestingSessionLocal()
+                     txn = db.query(Transaction).filter(Transaction.user_id == user_id, Transaction.type == "reserve").first()
+                     assert txn.status == "settled"
+                     db.close()

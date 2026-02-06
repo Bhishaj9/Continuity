@@ -18,7 +18,7 @@ from google.auth.transport import requests as google_requests
 from config import Settings
 from agent import analyze_only, generate_only
 from models import SessionLocal, User, Job, init_db
-from billing import create_checkout_session, process_webhook, reserve_credits
+from billing import create_checkout_session, process_webhook
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -164,14 +164,6 @@ async def generate_endpoint(
         
     job_id = str(uuid.uuid4())
 
-    # Reserve Credits
-    try:
-        reserve_credits(user.id, Settings.COST_PER_JOB, job_id)
-    except ValueError as e:
-        raise HTTPException(status_code=402, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Transaction failed")
-
     # Create Job in DB (Async wrapper)
     def create_job_record():
         job = Job(id=job_id, user_id=user.id, status="queued", progress=0, log="Queued...")
@@ -180,7 +172,7 @@ async def generate_endpoint(
 
     await run_in_threadpool(create_job_record)
         
-    await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
+    await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength, user.id)
     return {"job_id": job_id}
 
 @app.post("/billing/checkout")

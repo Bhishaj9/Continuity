@@ -29,7 +29,9 @@ class Transaction(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     amount = Column(Integer)
     type = Column(String) # 'purchase', 'reserve', 'settle', 'refund'
+    status = Column(String, default="completed") # 'completed', 'reserved', 'settled', 'refunded'
     reference_id = Column(String, nullable=True) # job_id or session_id
+    stripe_event_id = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="transactions")

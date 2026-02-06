@@ -15,7 +15,7 @@ from google import genai
 from google.genai import types
 from config import Settings
 from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos, get_job_from_db
-from billing import refund_credits_by_job_id
+from billing import refund_credits_by_job_id, reserve_credits, settle_transaction
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -100,8 +100,18 @@ def analyze_only(path_a, path_c, job_id=None):
         return {"detail": str(e), "status": "error"}
 
 
-def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion):
+def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, motion, user_id):
     try:
+        # Reserve Credits inside the worker
+        try:
+            reserve_credits(user_id, Settings.COST_PER_JOB, job_id)
+        except ValueError as e:
+            update_job_status(job_id, "error", 0, f"Insufficient funds: {e}")
+            return
+        except Exception as e:
+            update_job_status(job_id, "error", 0, "Transaction failed.")
+            return
+
         update_job_status(job_id, "generating", 50, "Production started (Veo 3.1)...")
         full_prompt = f"{style} style. {prompt} Soundtrack: {audio}"
         if neg:
@@ -168,6 +178,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
             
             msg = "Done! (Merged)" if merged_path else "Done! (Bridge Only)"
             update_job_status(job_id, "completed", 100, msg, video_url=bridge_path, merged_video_url=merged_path)
+            settle_transaction(job_id)
         else:
             raise Exception("No video output.")
 
