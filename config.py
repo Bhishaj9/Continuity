@@ -11,6 +11,8 @@ class Settings:
     GCP_CREDENTIALS_JSON = os.getenv("GCP_CREDENTIALS_JSON")
     HF_TOKEN = os.getenv("HF_TOKEN")
     GCP_BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
+    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
     @classmethod
     def setup_auth(cls):

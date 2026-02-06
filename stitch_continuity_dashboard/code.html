@@ -304,6 +304,21 @@
             </button>
         </div>
     </div>
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center hidden">
+        <div class="glass-panel p-8 rounded-2xl max-w-sm w-full text-center shadow-neon border border-primary/30">
+            <div class="size-16 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <span class="material-symbols-outlined text-4xl text-primary">lock</span>
+            </div>
+            <h2 class="text-2xl font-display font-bold text-white mb-2">Authentication Required</h2>
+            <p class="text-gray-400 text-sm mb-8">Please sign in with your Google account to access Continuity's generative features.</p>
+            <button onclick="signIn()" class="w-full bg-white text-black hover:bg-gray-200 py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors">
+                <img src="https://www.google.com/favicon.ico" class="w-5 h-5" alt="Google"> Sign In with Google
+            </button>
+            <p class="text-[10px] text-gray-600 mt-4 uppercase tracking-widest">Enterprise & Commercial Use Only</p>
+        </div>
+    </div>
+
     <div id="drawer-overlay" onclick="toggleDrawer(false)"
         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90] hidden transition-opacity"></div>
     <aside id="gallery-drawer"
@@ -330,6 +345,28 @@
                 drawer.classList.remove('drawer-open'); drawer.classList.add('drawer-closed'); overlay.classList.add('hidden');
             }
         }
+
+        // Auth Logic
+        function checkAuth() {
+            const token = localStorage.getItem('continuity_token');
+            if (!token) {
+                document.getElementById('auth-modal').classList.remove('hidden');
+            } else {
+                document.getElementById('auth-modal').classList.add('hidden');
+            }
+        }
+        function signIn() {
+            // Foundation: Set a dummy token. Real impl would involve OAuth redirect.
+            localStorage.setItem('continuity_token', 'demo-token-12345');
+            checkAuth();
+        }
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + localStorage.getItem('continuity_token') };
+        }
+
+        // Initial Check
+        checkAuth();
+
         let currentVideoAPath = "", currentVideoCPath = "";
         function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
         function loadPreferences() {
@@ -375,7 +412,12 @@
             btn.disabled = true; btn.innerHTML = `Analyzing...`;
             const fd = new FormData(); fd.append("video_a", fA); fd.append("video_c", fC);
             try {
-                const res = await fetch("/analyze", { method: "POST", body: fd });
+                const res = await fetch("/analyze", {
+                    method: "POST",
+                    body: fd,
+                    headers: { ...getAuthHeaders() }
+                });
+                if (res.status === 401) { localStorage.removeItem('continuity_token'); checkAuth(); throw new Error("Unauthorized"); }
                 const data = await res.json();
                 document.getElementById("prompt-box").value = data.prompt;
                 document.getElementById("analysis-a-text").innerText = data.analysis_a || "No details.";
@@ -390,7 +432,8 @@
             btn.disabled = true; btn.innerHTML = `Generating...`;
             try {
                 const res = await fetch("/generate", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
                     body: JSON.stringify({
                         prompt: document.getElementById("prompt-box").value,
                         style: document.getElementById("style-select").value,

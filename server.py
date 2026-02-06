@@ -5,7 +5,8 @@
 # This source code is licensed under the Proprietary license found in the
 # LICENSE file in the root directory of this source tree.
 # ------------------------------------------------------------------------------
-from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body
+from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body, Depends, status
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -42,12 +43,30 @@ class JobQueue:
 
 job_queue = JobQueue()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    # TODO: In a production environment, this token should be verified against
+    # Google's auth servers or decoded if it's a JWT.
+    # For this foundation stage, we only check that a token is present.
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
+
 @app.get("/")
 def read_root():
     return FileResponse("stitch_continuity_dashboard/code.html")
 
 @app.post("/analyze")
-def analyze_endpoint(video_a: UploadFile = File(...), video_c: UploadFile = File(...)):
+def analyze_endpoint(
+    video_a: UploadFile = File(...),
+    video_c: UploadFile = File(...),
+    user: str = Depends(get_current_user)
+):
     try:
         rid = str(uuid.uuid4())
         pa = os.path.join("outputs", f"{rid}_a.mp4")
@@ -82,7 +101,8 @@ async def generate_endpoint(
     guidance_scale: float = Body(5.0),
     motion_strength: int = Body(5),
     video_a_path: str = Body(...),
-    video_c_path: str = Body(...)
+    video_c_path: str = Body(...),
+    user: str = Depends(get_current_user)
 ):
     if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
         raise HTTPException(400, "Videos not found.")
