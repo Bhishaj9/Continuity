@@ -55,11 +55,11 @@ def process_webhook(payload, sig_header):
 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        handle_checkout_completed(session)
+        handle_checkout_completed(session, event['id'])
 
     return {"status": "success"}
 
-def handle_checkout_completed(session):
+def handle_checkout_completed(session, event_id=None):
     user_id = session.get('client_reference_id')
     if not user_id:
         logger.error("No user_id in session")
@@ -71,7 +71,14 @@ def handle_checkout_completed(session):
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.id == int(user_id)).first()
+        # Idempotency check
+        if event_id:
+            existing = db.query(Transaction).filter(Transaction.stripe_event_id == event_id).first()
+            if existing:
+                logger.info(f"Event {event_id} already processed.")
+                return
+
+        user = db.query(User).filter(User.id == int(user_id)).with_for_update().first()
         if not user:
             logger.error(f"User {user_id} not found")
             return
@@ -84,7 +91,9 @@ def handle_checkout_completed(session):
             user_id=user.id,
             amount=credits,
             type='purchase',
-            reference_id=session.get('id')
+            status='settled',
+            reference_id=session.get('id'),
+            stripe_event_id=event_id
         )
         db.add(txn)
         db.commit()
@@ -101,7 +110,7 @@ def reserve_credits(user_id, cost, job_id):
     """
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == user_id).with_for_update().first()
         if not user:
              raise ValueError("User not found")
 
@@ -113,6 +122,7 @@ def reserve_credits(user_id, cost, job_id):
             user_id=user_id,
             amount=-cost,
             type='reserve',
+            status='reserved',
             reference_id=job_id
         )
         db.add(txn)
@@ -139,7 +149,7 @@ def refund_credits_by_job_id(job_id, cost):
             logger.error(f"Job {job_id} not found for refund")
             return
 
-        user = db.query(User).filter(User.id == job.user_id).first()
+        user = db.query(User).filter(User.id == job.user_id).with_for_update().first()
         if not user: return
 
         user.balance += cost
@@ -147,13 +157,42 @@ def refund_credits_by_job_id(job_id, cost):
             user_id=user.id,
             amount=cost,
             type='refund',
+            status='settled',
             reference_id=job_id
         )
         db.add(txn)
+
+        # Mark original reservation as refunded
+        orig_txn = db.query(Transaction).filter(
+            Transaction.reference_id == job_id,
+            Transaction.type == 'reserve'
+        ).first()
+        if orig_txn:
+            orig_txn.status = 'refunded'
+
         db.commit()
         logger.info(f"Refunded {cost} credits to user {user.id} for job {job_id}")
     except Exception as e:
         logger.error(f"Refund failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+def settle_transaction(job_id):
+    """
+    Marks the reservation transaction for the job as settled.
+    """
+    db = SessionLocal()
+    try:
+        txn = db.query(Transaction).filter(
+            Transaction.reference_id == job_id,
+            Transaction.type == 'reserve'
+        ).first()
+        if txn:
+            txn.status = 'settled'
+            db.commit()
+    except Exception as e:
+        logger.error(f"Failed to settle transaction for job {job_id}: {e}")
         db.rollback()
     finally:
         db.close()
