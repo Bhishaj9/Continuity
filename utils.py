@@ -3,11 +3,12 @@ import shutil
 import requests
 import tempfile
 import logging
-import json
 import subprocess
 from datetime import timedelta
 from google.cloud import storage
 from config import Settings
+from models import SessionLocal, Job
+
 logger = logging.getLogger(__name__)
 
 def download_to_temp(url):
@@ -117,8 +118,47 @@ def update_job_status(job_id, status, progress, log=None, video_url=None, merged
         merged_dest = os.path.join("outputs", merged_filename)
         if os.path.abspath(merged_video_url) != os.path.abspath(merged_dest): shutil.move(merged_video_url, merged_dest)
         final_merged_url = f"/outputs/{merged_filename}"
-    with open(f"outputs/{job_id}.json", "w") as f:
-        json.dump({
-            "status": status, "progress": progress, "log": log,
-            "video_url": final_url, "merged_video_url": final_merged_url
-        }, f)
+
+    # Database update
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if not job:
+            # Create if not exists (upsert)
+            job = Job(
+                id=job_id,
+                status=status,
+                progress=progress,
+                log=log,
+                video_url=final_url,
+                merged_video_url=final_merged_url
+            )
+            db.add(job)
+        else:
+            job.status = status
+            job.progress = progress
+            if log: job.log = log
+            if final_url: job.video_url = final_url
+            if final_merged_url: job.merged_video_url = final_merged_url
+        db.commit()
+    except Exception as e:
+        logger.error(f"DB Update Failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+def get_job_from_db(job_id):
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        if job:
+            return {
+                "status": job.status,
+                "progress": job.progress,
+                "log": job.log,
+                "video_url": job.video_url,
+                "merged_video_url": job.merged_video_url
+            }
+        return None
+    finally:
+        db.close()

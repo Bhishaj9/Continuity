@@ -14,7 +14,7 @@ import json
 from google import genai
 from google.genai import types
 from config import Settings
-from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos
+from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos, get_job_from_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -177,12 +177,9 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
     finally:
         # Enforce Terminal State
         try:
-            status_file = f"outputs/{job_id}.json"
-            if os.path.exists(status_file):
-                with open(status_file, "r") as f:
-                    data = json.load(f)
-
-                status = data.get("status")
+            job = get_job_from_db(job_id)
+            if job:
+                status = job.get("status")
                 if status not in ["completed", "error"]:
                     logger.warning(f"Job {job_id} left in non-terminal state ({status}). Forcing error.")
                     update_job_status(job_id, "error", 0, "Job terminated unexpectedly.")

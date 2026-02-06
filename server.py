@@ -10,15 +10,28 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import uvicorn, os, shutil, uuid, json, asyncio
+from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
+import uvicorn, os, shutil, uuid, asyncio
 from agent import analyze_only, generate_only
 from utils import get_history_from_gcs
+from models import SessionLocal, User, Job, init_db
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 os.makedirs("outputs", exist_ok=True)
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+
+# Initialize Database
+init_db()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class JobQueue:
     def __init__(self):
@@ -45,7 +58,7 @@ job_queue = JobQueue()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     # TODO: In a production environment, this token should be verified against
     # Google's auth servers or decoded if it's a JWT.
     # For this foundation stage, we only check that a token is present.
@@ -55,7 +68,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return token
+
+    user = db.query(User).filter(User.username == token).first()
+    if not user:
+        user = User(username=token)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
 
 @app.get("/")
 def read_root():
@@ -65,10 +85,17 @@ def read_root():
 def analyze_endpoint(
     video_a: UploadFile = File(...),
     video_c: UploadFile = File(...),
-    user: str = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     try:
         rid = str(uuid.uuid4())
+
+        # Create Job in DB
+        job = Job(id=rid, user_id=user.id, status="analyzing", progress=0, log="Analysis started...")
+        db.add(job)
+        db.commit()
+
         pa = os.path.join("outputs", f"{rid}_a.mp4")
         pc = os.path.join("outputs", f"{rid}_c.mp4")
         
@@ -102,25 +129,38 @@ async def generate_endpoint(
     motion_strength: int = Body(5),
     video_a_path: str = Body(...),
     video_c_path: str = Body(...),
-    user: str = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
         raise HTTPException(400, "Videos not found.")
         
     job_id = str(uuid.uuid4())
-    with open(f"outputs/{job_id}.json", "w") as f:
-        json.dump({"status": "queued", "progress": 0, "log": "Queued..."}, f)
+
+    # Create Job in DB (Async wrapper)
+    def create_job_record():
+        job = Job(id=job_id, user_id=user.id, status="queued", progress=0, log="Queued...")
+        db.add(job)
+        db.commit()
+
+    await run_in_threadpool(create_job_record)
         
     await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
     return {"job_id": job_id}
 
 @app.get("/status/{job_id}")
-def get_status(job_id: str):
-    path = f"outputs/{job_id}.json"
-    if not os.path.exists(path):
+def get_status(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
         raise HTTPException(404, "Job not found")
-    with open(path, "r") as f:
-        return json.load(f)
+
+    return {
+        "status": job.status,
+        "progress": job.progress,
+        "log": job.log,
+        "video_url": job.video_url,
+        "merged_video_url": job.merged_video_url
+    }
 
 @app.get("/history")
 def get_history():
