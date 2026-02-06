@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Index
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from datetime import datetime
 import os
@@ -31,6 +31,16 @@ class Job(Base):
     merged_video_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    version = Column(Integer, default=1)
+
+    __mapper_args__ = {
+        "version_id_col": version
+    }
+
+    __table_args__ = (
+        Index('idx_user_created', "user_id", created_at.desc()),
+        Index('idx_jobs_status_completed', "status", postgresql_where=(status == 'completed')),
+    )
 
     owner = relationship("User", back_populates="jobs")
 

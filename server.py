@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 import uvicorn, os, shutil, uuid, asyncio
 from agent import analyze_only, generate_only
-from utils import get_history_from_gcs
 from models import SessionLocal, User, Job, init_db
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
@@ -163,8 +162,18 @@ def get_status(job_id: str, db: Session = Depends(get_db)):
     }
 
 @app.get("/history")
-def get_history():
-    return get_history_from_gcs()
+def get_history(db: Session = Depends(get_db)):
+    jobs = db.query(Job).filter(Job.status == "completed").order_by(Job.created_at.desc()).limit(20).all()
+    history = []
+    for job in jobs:
+        video_url = job.merged_video_url or job.video_url
+        if video_url:
+            history.append({
+                "name": job.id,
+                "url": video_url,
+                "created": job.created_at.isoformat()
+            })
+    return history
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=7860, reload=False)

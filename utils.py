@@ -6,6 +6,7 @@ import logging
 import subprocess
 from datetime import timedelta
 from google.cloud import storage
+from sqlalchemy.orm.exc import StaleDataError
 from config import Settings
 from models import SessionLocal, Job
 
@@ -120,32 +121,39 @@ def update_job_status(job_id, status, progress, log=None, video_url=None, merged
         final_merged_url = f"/outputs/{merged_filename}"
 
     # Database update
-    db = SessionLocal()
-    try:
-        job = db.query(Job).filter(Job.id == job_id).first()
-        if not job:
-            # Create if not exists (upsert)
-            job = Job(
-                id=job_id,
-                status=status,
-                progress=progress,
-                log=log,
-                video_url=final_url,
-                merged_video_url=final_merged_url
-            )
-            db.add(job)
-        else:
-            job.status = status
-            job.progress = progress
-            if log: job.log = log
-            if final_url: job.video_url = final_url
-            if final_merged_url: job.merged_video_url = final_merged_url
-        db.commit()
-    except Exception as e:
-        logger.error(f"DB Update Failed: {e}")
-        db.rollback()
-    finally:
-        db.close()
+    for _ in range(3):
+        db = SessionLocal()
+        try:
+            job = db.query(Job).filter(Job.id == job_id).first()
+            if not job:
+                # Create if not exists (upsert)
+                job = Job(
+                    id=job_id,
+                    status=status,
+                    progress=progress,
+                    log=log,
+                    video_url=final_url,
+                    merged_video_url=final_merged_url
+                )
+                db.add(job)
+            else:
+                job.status = status
+                job.progress = progress
+                if log: job.log = log
+                if final_url: job.video_url = final_url
+                if final_merged_url: job.merged_video_url = final_merged_url
+            db.commit()
+            break
+        except StaleDataError:
+            logger.warning(f"Optimistic locking failure for job {job_id}. Retrying...")
+            db.rollback()
+            continue
+        except Exception as e:
+            logger.error(f"DB Update Failed: {e}")
+            db.rollback()
+            break
+        finally:
+            db.close()
 
 def get_job_from_db(job_id):
     db = SessionLocal()
