@@ -22,6 +22,13 @@ Continuity is built as a scalable, cloud-native application designed for high av
 *   **Payments**: [Stripe](https://stripe.com/) integration for secure credit management, webhooks, and billing.
 *   **Infrastructure**: Fully containerized with [Docker](https://www.docker.com/) for consistent deployment across environments.
 
+## 📈 Scalability
+
+Continuity is designed to scale with your production needs.
+
+*   **V1.0 (Current)**: Uses an in-memory `asyncio` queue for simplicity and ease of deployment. Best suited for single-instance deployments.
+*   **V2.0 (Roadmap)**: Will migrate to **Redis** for the job queue, allowing for horizontal scaling of worker nodes and robust persistence of job states across restarts.
+
 ## ✨ Key Features
 
 *   **💰 Stripe-Backed Credit System**: Robust billing integration allowing users to purchase credits, with secure balance tracking and automated refunds for failed jobs.
