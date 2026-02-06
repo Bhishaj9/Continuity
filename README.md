@@ -1,4 +1,6 @@
 # Continuity 🎬
+![License](https://img.shields.io/badge/License-Proprietary-red.svg)
+
 AI-Powered Video Bridging & Post-Production Agent
 
 Continuity is an agentic workflow that acts as an autonomous professional film crew in your browser. It automatically generates seamless "bridge" transitions between two disparate video clips using a coordinated multi-agent system.
@@ -127,4 +129,4 @@ Contributions are welcome! Please ensure any PRs affecting the generation logic 
 5. Open a Pull Request
 
 ## 📄 License
-Distributed under the Apache 2.0 License. See LICENSE for more information.
+> ⚠️ **Proprietary Software**: The source code is available for inspection and educational purposes only. Unauthorized copying, modification, distribution, or commercial use is strictly prohibited without a license. Contact bhishaj9@gmail.com for licensing inquiries.

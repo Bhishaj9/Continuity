@@ -1,3 +1,10 @@
+# ------------------------------------------------------------------------------
+# Continuity - AI Video Bridging Service
+# Copyright (c) 2026 Bhishaj. All Rights Reserved.
+#
+# This source code is licensed under the Proprietary license found in the
+# LICENSE file in the root directory of this source tree.
+# ------------------------------------------------------------------------------
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
