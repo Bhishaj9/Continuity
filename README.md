@@ -1,5 +1,7 @@
 # Project Continuity: Cinematic AI Video Bridging
+![Version](https://img.shields.io/badge/Version-1.0.0%20(Certified)-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-Proprietary-red.svg)
+![AI Engine](https://img.shields.io/badge/AI%20Engine-Vertex%20AI%20%2F%20Veo%203.1-6f42c1.svg)
 
 **Production-Grade SaaS for Autonomous Video Post-Production**
 
@@ -7,20 +9,52 @@ Continuity is an agentic workflow that acts as an autonomous professional film c
 
 By orchestrating Gemini 2.0 Flash (Analysis/Director) and Google Veo 3.1 (Cinematographer/Generator), Continuity understands the visual semantics of your footage and hallucinates a physics-defying, narratively consistent transition to stitch them together.
 
-![System Architecture](placeholder_architecture.png)
-*[Demo Video](placeholder_video_link)*
 
-## 🏗️ Technical Architecture
 
-Continuity is built as a scalable, cloud-native application designed for high availability and fault tolerance.
+## 🏗️ System Architecture
 
-*   **Backend**: [FastAPI](https://fastapi.tiangolo.com/) provides a high-performance, asynchronous web server.
-*   **Database**: [SQLAlchemy](https://www.sqlalchemy.org/) manages persistence with atomic transactions and optimistic locking to prevent race conditions.
-*   **AI Core**:
-    *   **Director**: Gemini 2.0 Flash for semantic analysis and prompt engineering.
-    *   **Cinematographer**: Google Veo 3.1 on Vertex AI for high-fidelity video generation.
-*   **Payments**: [Stripe](https://stripe.com/) integration for secure credit management, webhooks, and billing.
-*   **Infrastructure**: Fully containerized with [Docker](https://www.docker.com/) for consistent deployment across environments.
+Continuity V1.0 delivers a production-grade pipeline with a single, auditable **Golden Thread** that spans the full lifecycle of a job:
+
+1. **Auth (Google OAuth2)** authenticates the creator and issues a verified identity.
+2. **Payment (Stripe)** captures credit intent and verifies balance before execution.
+3. **AI Worker (Veo 3.1 on Vertex AI)** generates the cinematic bridge and returns an artifact ready for post-processing.
+
+This end-to-end thread ensures every output is traceable from identity → payment → generation.
+
+**Golden Thread (Event Flow)**
+```text
+User → OAuth2 (Identity) → Stripe (Credit Authorization)
+     → Job Ledger (Locked Deduction) → Veo 3.1 (Generation)
+     → FFmpeg (Stitching) → Artifact Delivery
+```
+
+## ✨ Advanced Engineering Features
+
+| Feature | Implementation Detail | Value |
+| --- | --- | --- |
+| **Concurrency Control** | Row-level locking with `with_for_update()` in SQLAlchemy to serialize credit deductions. | Prevents double-spending and preserves financial integrity under high-concurrency workloads. |
+| **Financial Reliability** | Idempotent Stripe webhook handlers plus a two-tier refund safety net (auto-refund on failure + manual reconciliation path). | Ensures exactly-once billing effects, audit-ready reversals, and operational resilience. |
+| **Optimized AI Pipeline** | Hash-based file de-duplication + resilient FFmpeg stitching with retry-safe steps. | Eliminates redundant compute and hardens media assembly. |
+
+## 🧰 Tech Stack
+
+| Layer | Technologies |
+| --- | --- |
+| **API & Service** | FastAPI, SQLAlchemy |
+| **AI & Compute** | Vertex AI, Veo 3.1 |
+| **Payments** | Stripe |
+| **Media** | FFmpeg |
+| **Runtime** | Docker |
+
+## 🔧 Development Workflow
+
+Standardized Makefile targets keep local and CI setups consistent:
+
+```bash
+make install
+make test
+make docker-build
+```
 
 ## 📈 Scalability
 
@@ -109,7 +143,7 @@ docker run -p 7860:7860 --env-file .env continuity-app
 
 **Copyright (c) 2026 Bhishaj. All Rights Reserved.**
 
-This software is **Proprietary**.
+This software uses a **Proprietary "Source-Available"** license model.
 *   The source code is available for inspection and educational purposes only.
 *   Unauthorized copying, modification, distribution, or commercial use is strictly prohibited without a license.
 *   See the [LICENSE](LICENSE) file for full details.
