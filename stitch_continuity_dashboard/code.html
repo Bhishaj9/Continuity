@@ -114,6 +114,10 @@
             <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
         </div>
         <div class="flex items-center gap-3">
+            <span id="credit-display" class="hidden text-xs font-bold text-gray-400 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">Credits: <span id="credit-balance" class="text-primary">0</span></span>
+            <button onclick="buyCredits()" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/50 rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-lg">
+                <span class="material-symbols-outlined text-sm">payments</span> Buy
+            </button>
             <button onclick="toggleDrawer(true)"
                 class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
                 <span class="material-symbols-outlined text-lg">history</span> Gallery
@@ -353,6 +357,7 @@
                 document.getElementById('auth-modal').classList.remove('hidden');
             } else {
                 document.getElementById('auth-modal').classList.add('hidden');
+                fetchBalance();
             }
         }
         function signIn() {
@@ -366,6 +371,33 @@
 
         // Initial Check
         checkAuth();
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch('/billing/balance', { headers: getAuthHeaders() });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('credit-balance').innerText = data.balance;
+                    document.getElementById('credit-display').classList.remove('hidden');
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function buyCredits() {
+            try {
+                const res = await fetch('/billing/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ quantity: 100 }) // Buy 100 credits pack
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    window.location.href = data.url;
+                } else {
+                    alert("Checkout failed");
+                }
+            } catch (e) { alert(e.message); }
+        }
 
         let currentVideoAPath = "", currentVideoCPath = "";
         function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }

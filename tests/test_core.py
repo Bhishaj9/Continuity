@@ -17,7 +17,7 @@ if "GOOGLE_API_KEY" not in os.environ:
 
 # Import server
 from server import app, get_db
-from models import Base, User, Job
+from models import Base, User, Job, Transaction
 from agent import analyze_only, generate_only
 from google.oauth2 import id_token
 
@@ -75,18 +75,35 @@ def mock_verify_token():
         mock.return_value = {"email": "test@example.com", "sub": "12345"}
         yield mock
 
+@pytest.fixture
+def mock_stripe():
+    with patch("billing.stripe") as mock:
+        mock.checkout.Session.create.return_value = MagicMock(url="http://checkout.url")
+        mock.Webhook.construct_event.return_value = {
+            'type': 'checkout.session.completed',
+            'data': {'object': {'client_reference_id': '1', 'amount_total': 1000, 'id': 'sess_123', 'customer': 'cus_123'}}
+        }
+        yield mock
+
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
 
-# Patch SessionLocal in models and utils to use our TestingSessionLocal
+# Patch SessionLocal in models, utils AND billing to use our TestingSessionLocal
 @pytest.fixture(autouse=True)
 def patch_models_session():
     with patch("models.SessionLocal", side_effect=TestingSessionLocal), \
-         patch("utils.SessionLocal", side_effect=TestingSessionLocal):
+         patch("utils.SessionLocal", side_effect=TestingSessionLocal), \
+         patch("billing.SessionLocal", side_effect=TestingSessionLocal):
              yield
+
+@pytest.fixture(autouse=True)
+def mock_settings():
+    with patch("billing.Settings.STRIPE_SECRET_KEY", "sk_test_mock"), \
+         patch("billing.Settings.STRIPE_WEBHOOK_SECRET", "whsec_mock"):
+        yield
 
 # --- Server Tests ---
 
@@ -129,6 +146,13 @@ def test_analyze_endpoint(mock_analyze, mock_verify_token):
 
 @patch("server.job_queue.add_job")
 def test_generate_endpoint(mock_add_job, mock_verify_token):
+    # Give user credits first
+    db = TestingSessionLocal()
+    user = User(username="test@example.com", balance=100)
+    db.add(user)
+    db.commit()
+    db.close()
+
     with patch("os.path.exists", return_value=True):
          payload = {
              "prompt": "Test prompt",
@@ -195,6 +219,122 @@ def test_invalid_token_verification():
         response = client.post("/analyze", files=files, headers={"Authorization": "Bearer invalidtoken"})
         assert response.status_code == 401
         assert "Invalid authentication credentials" in response.json()["detail"]
+
+def test_billing_checkout(mock_verify_token, mock_stripe):
+    # Ensure user exists (mock_verify_token returns test@example.com)
+    # We rely on get_current_user to create it if not exists, but we mock it.
+    # Actually get_current_user uses DB.
+    # We need to ensure DB has user or it's created.
+    # In integration test with client, get_current_user runs.
+    response = client.post("/billing/checkout", json={"quantity": 10}, headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json()["url"] == "http://checkout.url"
+
+def test_billing_balance(mock_verify_token):
+    # Setup user with balance.
+    # Note: get_current_user will find this user by email from mock_verify_token
+    db = TestingSessionLocal()
+    user = User(username="test@example.com", balance=50)
+    db.add(user)
+    db.commit()
+    db.close()
+
+    response = client.get("/billing/balance", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json()["balance"] == 50
+
+def test_stripe_webhook(mock_stripe):
+    # Create user
+    db = TestingSessionLocal()
+    user = User(username="webhook@example.com", id=1, balance=0)
+    db.add(user)
+    db.commit()
+    db.close()
+
+    # Call webhook
+    response = client.post("/webhook/stripe", json={}, headers={"stripe-signature": "sig"})
+    assert response.status_code == 200
+
+    # Verify balance update
+    db = TestingSessionLocal()
+    user = db.query(User).filter(User.id == 1).first()
+    assert user.balance == 10 # 1000 cents / 100
+    txn = db.query(Transaction).filter(Transaction.user_id == 1).first()
+    assert txn.type == "purchase"
+    assert txn.amount == 10
+    db.close()
+
+@patch("server.job_queue.add_job")
+def test_generate_insufficient_funds(mock_add_job, mock_verify_token):
+    # User has 0 balance (default)
+    with patch("os.path.exists", return_value=True):
+         payload = {
+             "prompt": "Test prompt",
+             "video_a_path": "outputs/a.mp4",
+             "video_c_path": "outputs/c.mp4"
+         }
+         response = client.post("/generate", json=payload, headers={"Authorization": "Bearer token"})
+
+         assert response.status_code == 402 # Payment Required
+         mock_add_job.assert_not_called()
+
+@patch("server.job_queue.add_job")
+def test_generate_reserve_success(mock_add_job, mock_verify_token):
+    # Setup user with balance
+    db = TestingSessionLocal()
+    user = db.query(User).filter(User.username == "test@example.com").first()
+    if not user:
+        user = User(username="test@example.com", balance=20)
+        db.add(user)
+    else:
+        user.balance = 20
+    db.commit()
+    db.close()
+
+    with patch("os.path.exists", return_value=True):
+         payload = {
+             "prompt": "Test prompt",
+             "video_a_path": "outputs/a.mp4",
+             "video_c_path": "outputs/c.mp4"
+         }
+         response = client.post("/generate", json=payload, headers={"Authorization": "Bearer token"})
+
+         assert response.status_code == 200
+         mock_add_job.assert_called_once()
+
+         # Check balance deducted
+         db = TestingSessionLocal()
+         user = db.query(User).filter(User.username == "test@example.com").first()
+         assert user.balance == 10 # 20 - 10
+         txn = db.query(Transaction).filter(Transaction.user_id == user.id, Transaction.type == "reserve").first()
+         assert txn is not None
+         assert txn.amount == -10
+         db.close()
+
+def test_generate_refund_on_failure(mock_genai_client):
+    # Setup DB with user and job that was reserved
+    db = TestingSessionLocal()
+    user = User(username="fail@example.com", balance=0)
+    db.add(user)
+    db.commit()
+    job = Job(id="fail_job", user_id=user.id, status="generating")
+    db.add(job)
+    db.commit()
+    db.close()
+
+    # Mock GenAI to raise exception
+    mock_genai_client.return_value.models.generate_videos.side_effect = Exception("Veo Error")
+
+    with patch("agent.Settings.GCP_PROJECT_ID", "dummy"):
+        generate_only("prompt", "a", "c", "fail_job", "style", "audio", "neg", 5.0, 5)
+
+    # Check refund
+    db = TestingSessionLocal()
+    user = db.query(User).filter(User.username == "fail@example.com").first()
+    assert user.balance == 10 # Refunded 10
+    txn = db.query(Transaction).filter(Transaction.user_id == user.id, Transaction.type == "refund").first()
+    assert txn is not None
+    db.close()
 
 # --- Agent Tests ---
 

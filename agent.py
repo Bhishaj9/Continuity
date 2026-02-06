@@ -15,6 +15,7 @@ from google import genai
 from google.genai import types
 from config import Settings
 from utils import download_to_temp, download_blob, save_video_bytes, update_job_status, stitch_videos, get_job_from_db
+from billing import refund_credits_by_job_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -173,6 +174,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
     except Exception as e:
         logger.error(f"Worker crashed: {e}")
         update_job_status(job_id, "error", 0, f"Error: {e}")
+        refund_credits_by_job_id(job_id, Settings.COST_PER_JOB)
 
     finally:
         # Enforce Terminal State
@@ -183,5 +185,6 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 if status not in ["completed", "error"]:
                     logger.warning(f"Job {job_id} left in non-terminal state ({status}). Forcing error.")
                     update_job_status(job_id, "error", 0, "Job terminated unexpectedly.")
+                    refund_credits_by_job_id(job_id, Settings.COST_PER_JOB)
         except Exception as e:
             logger.error(f"Final safety net failed: {e}")
