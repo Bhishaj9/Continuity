@@ -39,6 +39,8 @@ Continuity is built as a scalable, cloud-native application designed for high av
 - Google Cloud Project with Vertex AI API enabled.
 - Stripe Account (for billing features).
 
+> **Important**: While the app supports SQLite for development, **PostgreSQL is required for production** to support the `with_for_update()` row-level locking correctly.
+
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/Bhishaj9/Continuity.git

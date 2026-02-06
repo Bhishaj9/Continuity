@@ -12,13 +12,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
-import uvicorn, os, shutil, uuid, asyncio
+import uvicorn, os, shutil, uuid, asyncio, logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from config import Settings
 from agent import analyze_only, generate_only
 from models import SessionLocal, User, Job, init_db
-from billing import create_checkout_session, process_webhook
+from billing import create_checkout_session, process_webhook, reconcile_reservations
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -53,7 +55,7 @@ class JobQueue:
             try:
                 await asyncio.to_thread(func, *args)
             except Exception as e:
-                print(f"Queue Error: {e}")
+                logger.error(f"Queue Error: {e}")
             self.queue.task_done()
         self.is_processing = False
 
@@ -76,6 +78,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             google_requests.Request(),
             audience=Settings.GOOGLE_CLIENT_ID
         )
+
+        # Check issuer
+        iss = id_info.get("iss")
+        if iss not in ["https://accounts.google.com", "accounts.google.com"]:
+             raise ValueError("Invalid token issuer")
 
         # Extract user info
         username = id_info.get("email") or id_info.get("sub")
@@ -189,6 +196,18 @@ def checkout_endpoint(
 @app.get("/billing/balance")
 def balance_endpoint(user: User = Depends(get_current_user)):
     return {"balance": user.balance}
+
+@app.post("/billing/reconcile")
+def reconcile_endpoint(request: Request):
+    admin_key = os.getenv("ADMIN_KEY", "continuity_admin_secret")
+    if request.headers.get("X-Admin-Key") != admin_key:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    try:
+        count = reconcile_reservations()
+        return {"status": "success", "refunded_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/webhook/stripe")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):

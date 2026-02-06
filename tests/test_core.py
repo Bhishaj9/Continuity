@@ -37,9 +37,15 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
+# app.dependency_overrides[get_db] = override_get_db # Moved to fixture
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def override_dependency():
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides = {}
 
 MOCK_VIDEO_CONTENT = b"fake video content"
 MOCK_ANALYSIS_RESPONSE = {
@@ -72,7 +78,11 @@ def mock_sleep():
 @pytest.fixture
 def mock_verify_token():
     with patch("google.oauth2.id_token.verify_oauth2_token") as mock:
-        mock.return_value = {"email": "test@example.com", "sub": "12345"}
+        mock.return_value = {
+            "email": "test@example.com",
+            "sub": "12345",
+            "iss": "https://accounts.google.com"
+        }
         yield mock
 
 @pytest.fixture

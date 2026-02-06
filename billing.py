@@ -1,5 +1,6 @@
 import stripe
 import logging
+from datetime import datetime, timedelta
 from fastapi import HTTPException
 from config import Settings
 from models import SessionLocal, User, Job, Transaction
@@ -101,6 +102,51 @@ def handle_checkout_completed(session, event_id=None):
     except Exception as e:
         logger.error(f"DB Error processing webhook: {e}")
         db.rollback()
+    finally:
+        db.close()
+
+def reconcile_reservations():
+    """
+    Finds reserved transactions older than 1 hour and refunds them.
+    """
+    db = SessionLocal()
+    refunded_count = 0
+    try:
+        cutoff_time = datetime.utcnow() - timedelta(hours=1)
+        stuck_txns = db.query(Transaction).filter(
+            Transaction.status == 'reserved',
+            Transaction.created_at < cutoff_time
+        ).all()
+
+        for txn in stuck_txns:
+            user = db.query(User).filter(User.id == txn.user_id).with_for_update().first()
+            if not user:
+                continue
+
+            # Refund the amount (amount is negative for reserve, so we subtract it or add abs)
+            refund_amount = abs(txn.amount)
+            user.balance += refund_amount
+
+            refund_txn = Transaction(
+                user_id=user.id,
+                amount=refund_amount,
+                type='refund',
+                status='settled',
+                reference_id=txn.reference_id,
+                stripe_event_id=f"auto-refund-{txn.id}-{datetime.utcnow().timestamp()}"
+            )
+            db.add(refund_txn)
+
+            txn.status = 'refunded'
+            refunded_count += 1
+            logger.info(f"Reconciled/Refunded transaction {txn.id} for user {user.id}")
+
+        db.commit()
+        return refunded_count
+    except Exception as e:
+        logger.error(f"Reconciliation failed: {e}")
+        db.rollback()
+        raise e
     finally:
         db.close()
 
