@@ -46,7 +46,6 @@
             overflow: hidden;
         }
 
-        /* Drawer Transitions */
         #gallery-drawer {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -59,7 +58,6 @@
             transform: translateX(100%);
         }
 
-        /* Range Sliders */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -83,23 +81,38 @@
             background: #362445;
             border-radius: 2px;
         }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(127, 13, 242, 0.5);
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(127, 13, 242, 0.8);
+        }
     </style>
 </head>
 
 <body
     class="bg-background-dark font-body text-white h-screen w-screen overflow-hidden flex flex-col selection:bg-primary selection:text-white relative">
-
-    <!-- Header: Logo & Top Controls -->
     <header
         class="flex items-center justify-between px-6 py-4 z-40 relative w-full border-b border-white/5 bg-background-dark/50 backdrop-blur-sm">
         <div class="flex items-center gap-3">
             <div
                 class="size-8 flex items-center justify-center bg-primary/20 rounded-lg border border-primary/30 text-primary">
-                <span class="material-symbols-outlined">movie_filter</span>
-            </div>
+                <span class="material-symbols-outlined">movie_filter</span></div>
             <h1 class="text-xl font-display font-bold tracking-tight">Continuity</h1>
         </div>
-
         <div class="flex items-center gap-3">
             <button onclick="toggleDrawer(true)"
                 class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-[#6b0bc9] text-white rounded-lg transition-colors text-xs font-bold uppercase tracking-wider shadow-neon">
@@ -107,13 +120,8 @@
             </button>
         </div>
     </header>
-
-    <!-- Main Stage: Scrollable Content -->
-    <!-- FIX: Increased padding bottom to pb-[32rem] (~512px) to clear floating controls -->
     <main class="flex-1 w-full overflow-y-auto relative flex flex-col items-center pt-8 pb-[32rem]">
         <div class="w-full max-w-6xl mx-auto flex items-center justify-center gap-4 md:gap-8 lg:gap-12 px-4">
-
-            <!-- SCENE A -->
             <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
                 <div class="flex justify-between px-1"><span
                         class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene A (Start)</span>
@@ -131,8 +139,6 @@
                         onchange="handleFileSelect(this, 'label-a')">
                 </div>
             </div>
-
-            <!-- GENERATED BRIDGE -->
             <div class="flex flex-col gap-3 flex-[1.5] max-w-[500px] relative z-20">
                 <div class="flex justify-center px-1"><span
                         class="text-[10px] font-bold tracking-[0.2em] text-primary uppercase animate-pulse">Generated
@@ -158,7 +164,7 @@
                     </div>
                 </div>
                 <div id="merged-download-container"
-                    class="hidden flex justify-center mt-4 animate-in fade-in slide-in-from-top-2">
+                    class="hidden flex justify-center mt-8 relative z-30 animate-in fade-in slide-in-from-top-2">
                     <a id="merged-download-btn" href="#" download
                         class="flex items-center gap-2 px-6 py-3 bg-surface-dark hover:bg-white/5 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg group">
                         <span class="material-symbols-outlined group-hover:animate-bounce">movie</span> Download Merged
@@ -166,8 +172,6 @@
                     </a>
                 </div>
             </div>
-
-            <!-- SCENE C -->
             <div class="flex flex-col gap-3 flex-1 max-w-[320px] group">
                 <div class="flex justify-end px-1"><span
                         class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scene C (End)</span></div>
@@ -184,14 +188,9 @@
                         onchange="handleFileSelect(this, 'label-c')">
                 </div>
             </div>
-
         </div>
     </main>
-
-    <!-- Floating Controls (Absolute/Fixed over content) -->
     <div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4 pointer-events-none">
-
-        <!-- Analysis Panel -->
         <div id="analysis-panel"
             class="glass-panel p-2 rounded-full shadow-neon flex items-center justify-between pl-6 pr-2 pointer-events-auto">
             <div class="flex flex-col"><span class="text-sm font-bold text-white">Continuity Engine</span><span
@@ -205,8 +204,6 @@
                         class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes</button>
             </div>
         </div>
-
-        <!-- Review Panel -->
         <div id="review-panel"
             class="hidden glass-panel rounded-2xl p-5 shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar pointer-events-auto">
             <div class="flex items-center justify-between border-b border-white/10 pb-3">
@@ -221,84 +218,94 @@
                         class="text-xs text-gray-500 hover:text-white uppercase tracking-wider">Reset</button>
                 </div>
             </div>
-
-            <!-- NEW: Structured Analysis Display -->
             <div class="grid grid-cols-2 gap-4 mb-2">
-                <div class="bg-white/5 p-2 rounded-lg border border-white/10">
-                    <span class="text-[9px] font-bold text-primary uppercase">Scene A Analysis</span>
-                    <p id="analysis-a-text" class="text-[10px] text-gray-300 h-10 overflow-y-auto mt-1 leading-tight">
+                <div class="bg-white/5 p-3 rounded-lg border border-white/10">
+                    <span class="text-[10px] font-bold text-primary uppercase flex items-center gap-1"><span
+                            class="material-symbols-outlined text-xs">videocam</span> Scene A Analysis</span>
+                    <p id="analysis-a-text"
+                        class="text-[11px] text-gray-300 h-24 overflow-y-auto custom-scrollbar mt-2 leading-relaxed">
                         Waiting for analysis...</p>
                 </div>
-                <div class="bg-white/5 p-2 rounded-lg border border-white/10">
-                    <span class="text-[9px] font-bold text-primary uppercase">Scene C Analysis</span>
-                    <p id="analysis-c-text" class="text-[10px] text-gray-300 h-10 overflow-y-auto mt-1 leading-tight">
+                <div class="bg-white/5 p-3 rounded-lg border border-white/10">
+                    <span class="text-[10px] font-bold text-primary uppercase flex items-center gap-1"><span
+                            class="material-symbols-outlined text-xs">videocam</span> Scene C Analysis</span>
+                    <p id="analysis-c-text"
+                        class="text-[11px] text-gray-300 h-24 overflow-y-auto custom-scrollbar mt-2 leading-relaxed">
                         Waiting for analysis...</p>
                 </div>
+            </div>
+            <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
+                    Direction (Bridge B)</label>
+                <textarea id="prompt-box" rows="4"
+                    class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none custom-scrollbar"></textarea>
             </div>
 
-            <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                    Direction (Bridge B)</label><textarea id="prompt-box" rows="3"
-                    class="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"></textarea>
-            </div>
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Visual
-                        Style</label><select id="style-select" onchange="savePreference('style', this.value)"
+                        Style</label>
+                    <select id="style-select" onchange="savePreference('style', this.value)"
                         class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
                         <option value="Cinematic">Cinematic</option>
                         <option value="Anime">Anime</option>
                         <option value="Cyberpunk">Cyberpunk</option>
                         <option value="VHS">VHS Glitch</option>
                         <option value="Noir">Noir</option>
-                    </select></div>
+                    </select>
+                </div>
                 <div><label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Audio
-                        Mood</label><select id="audio-input" onchange="savePreference('audio', this.value)"
+                        Mood</label>
+                    <select id="audio-input" onchange="savePreference('audio', this.value)"
                         class="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer">
                         <option value="Cinematic orchestral score">Cinematic</option>
                         <option value="Industrial synthwave">Cyberpunk</option>
                         <option value="Nature sounds">Nature</option>
                         <option value="Tense atmosphere">Horror</option>
                         <option value="High energy rock">Action</option>
-                    </select></div>
+                    </select>
+                </div>
             </div>
             <div class="border-t border-white/10 pt-3">
                 <button onclick="document.getElementById('advanced-settings').classList.toggle('hidden')"
-                    class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full"><span
-                        class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
-                        class="material-symbols-outlined text-sm ml-auto">expand_more</span></button>
+                    class="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-white transition-colors w-full">
+                    <span class="material-symbols-outlined text-sm">tune</span> Advanced Physics & Controls <span
+                        class="material-symbols-outlined text-sm ml-auto">expand_more</span>
+                </button>
                 <div id="advanced-settings"
                     class="hidden pt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                     <div class="col-span-1 md:col-span-2"><label
-                            class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt</label><input
-                            id="negative-prompt" type="text" placeholder="text, blurry, watermark"
+                            class="text-[10px] text-gray-500 uppercase font-bold">Negative Prompt</label>
+                        <input id="negative-prompt" type="text" placeholder="text, blurry, watermark"
                             class="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-red-500/50 outline-none mt-1">
                     </div>
                     <div>
                         <div class="flex justify-between"><label
                                 class="text-[10px] text-gray-500 uppercase font-bold">Guidance Scale</label><span
-                                id="guidance-val" class="text-[10px] text-primary">5.0</span></div><input
-                            id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5" class="w-full mt-2"
+                                id="guidance-val" class="text-[10px] text-primary">5.0</span></div>
+                        <input id="guidance-scale" type="range" min="1" max="20" value="5" step="0.5"
+                            class="w-full mt-2"
                             oninput="document.getElementById('guidance-val').innerText = this.value">
                     </div>
                     <div>
                         <div class="flex justify-between"><label
                                 class="text-[10px] text-gray-500 uppercase font-bold">Motion Strength</label><span
-                                id="motion-val" class="text-[10px] text-primary">5</span></div><input
-                            id="motion-strength" type="range" min="1" max="10" value="5" class="w-full mt-2"
+                                id="motion-val" class="text-[10px] text-primary">5</span></div>
+                        <input id="motion-strength" type="range" min="1" max="10" value="5" class="w-full mt-2"
                             oninput="document.getElementById('motion-val').innerText = this.value">
                     </div>
                 </div>
             </div>
+            <a id="panel-download-btn" href="#" download
+                class="hidden w-full bg-surface-dark border border-green-500/50 text-green-400 hover:bg-green-500/10 py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mb-3 transition-all">
+                <span class="material-symbols-outlined">download</span> Download Final Video
+            </a>
             <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1"><span
-                    class="material-symbols-outlined">auto_fix_high</span> Generate Video</button>
+                class="w-full bg-gradient-to-r from-primary to-[#9d4edd] hover:brightness-110 text-white py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2 mt-1">
+                <span class="material-symbols-outlined">auto_fix_high</span> Generate Video
+            </button>
         </div>
     </div>
-
-    <!-- History Drawer Overlay -->
     <div id="drawer-overlay" onclick="toggleDrawer(false)"
         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90] hidden transition-opacity"></div>
-
-    <!-- History Drawer -->
     <aside id="gallery-drawer"
         class="fixed top-0 right-0 h-full w-[400px] bg-background-dark border-l border-white/10 z-[100] drawer-closed flex flex-col shadow-2xl">
         <div class="p-6 border-b border-white/5 flex items-center justify-between bg-surface-dark">
@@ -312,33 +319,18 @@
             <div class="text-center text-gray-500 mt-10">Loading history...</div>
         </div>
     </aside>
-
     <script>
         function toggleDrawer(show) {
             const drawer = document.getElementById('gallery-drawer');
             const overlay = document.getElementById('drawer-overlay');
-
-            if (!drawer || !overlay) {
-                console.error("Drawer elements not found! Check HTML structure.");
-                return;
-            }
-
+            if (!drawer || !overlay) return;
             if (show) {
-                drawer.classList.remove('drawer-closed');
-                drawer.classList.add('drawer-open');
-                overlay.classList.remove('hidden');
-                fetchHistory();
+                drawer.classList.remove('drawer-closed'); drawer.classList.add('drawer-open'); overlay.classList.remove('hidden'); fetchHistory();
             } else {
-                drawer.classList.remove('drawer-open');
-                drawer.classList.add('drawer-closed');
-                overlay.classList.add('hidden');
+                drawer.classList.remove('drawer-open'); drawer.classList.add('drawer-closed'); overlay.classList.add('hidden');
             }
         }
-
-        // --- APP LOGIC ---
-        let currentVideoAPath = "";
-        let currentVideoCPath = "";
-
+        let currentVideoAPath = "", currentVideoCPath = "";
         function savePreference(key, value) { localStorage.setItem('continuity_' + key, value); }
         function loadPreferences() {
             const s = localStorage.getItem('continuity_style');
@@ -347,96 +339,58 @@
             if (a) document.getElementById('audio-input').value = a;
         }
         loadPreferences();
-
         async function fetchHistory() {
             const c = document.getElementById('gallery-content');
             c.innerHTML = '<div class="text-center mt-10"><span class="material-symbols-outlined animate-spin">progress_activity</span></div>';
             try {
                 const res = await fetch('/history');
-                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
-                if (!data || !data.length) {
-                    c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history found.</div>';
-                    return;
-                }
-                c.innerHTML = data.map(i => `
-                <div class="bg-black/40 rounded-lg overflow-hidden border border-white/5 mb-4 group">
-                    <video src="${i.url}" class="w-full aspect-video object-cover" controls></video>
-                    <div class="p-2 flex justify-between items-center bg-white/5">
-                        <span class="text-[10px] text-gray-400 truncate w-32">${i.name}</span>
-                        <a href="${i.url}" download class="text-gray-400 hover:text-white transition-colors"><span class="material-symbols-outlined text-sm">download</span></a>
-                    </div>
-                </div>`).join('');
-            } catch (e) {
-                c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.</div>';
-            }
+                if (!data || !data.length) { c.innerHTML = '<div class="text-center text-gray-500 mt-10 text-xs">No history found.</div>'; return; }
+                c.innerHTML = data.map(i => `<div class="bg-black/40 rounded-lg overflow-hidden border border-white/5 mb-4 group"><video src="${i.url}" class="w-full aspect-video object-cover" controls></video><div class="p-2 flex justify-between items-center bg-white/5"><span class="text-[10px] text-gray-400 truncate w-32">${i.name}</span><a href="${i.url}" download class="text-gray-400 hover:text-white transition-colors"><span class="material-symbols-outlined text-sm">download</span></a></div></div>`).join('');
+            } catch (e) { c.innerHTML = '<div class="text-center text-red-400 mt-10">Error loading history.</div>'; }
         }
-
         function handleFileSelect(input, labelId) {
             if (input.files[0]) {
                 document.getElementById(labelId).innerText = input.files[0].name;
                 document.getElementById(labelId).classList.add("text-primary", "font-bold");
             }
         }
-
         function resetUI() {
             document.getElementById("analysis-panel").classList.remove("hidden");
             document.getElementById("review-panel").classList.add("hidden");
             document.getElementById("prompt-box").value = "";
-
-            // Reset Analysis Fields
             document.getElementById("analysis-a-text").innerText = "Waiting for analysis...";
             document.getElementById("analysis-c-text").innerText = "Waiting for analysis...";
-
-            currentVideoAPath = "";
-            currentVideoCPath = "";
-
+            currentVideoAPath = ""; currentVideoCPath = "";
             document.getElementById("bridge-content").innerHTML = `<div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image:url('https://images.unsplash.com/photo-1614850523060-8da1d56ae167')"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="material-symbols-outlined text-3xl text-primary mb-2">auto_awesome</span><p class="text-xs text-gray-400">Ready</p></div>`;
             document.getElementById("bridge-card-outer").classList.replace("border-primary", "border-primary/20");
             document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
             document.getElementById("merged-download-container").classList.add("hidden");
+            document.getElementById("panel-download-btn").classList.add("hidden");
         }
-
         document.getElementById("analyze-btn").addEventListener("click", async () => {
-            const fA = document.getElementById("video-upload-a").files[0];
-            const fC = document.getElementById("video-upload-c").files[0];
+            const fA = document.getElementById("video-upload-a").files[0], fC = document.getElementById("video-upload-c").files[0];
             if (!fA || !fC) return alert("Upload both scenes.");
             const btn = document.getElementById("analyze-btn");
-            btn.disabled = true;
-            btn.innerHTML = `Analyzing...`;
-            const fd = new FormData();
-            fd.append("video_a", fA);
-            fd.append("video_c", fC);
+            btn.disabled = true; btn.innerHTML = `Analyzing...`;
+            const fd = new FormData(); fd.append("video_a", fA); fd.append("video_c", fC);
             try {
                 const res = await fetch("/analyze", { method: "POST", body: fd });
-                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 document.getElementById("prompt-box").value = data.prompt;
-
-                // Populate Analysis Fields
-                document.getElementById("analysis-a-text").innerText = data.analysis_a || "No details found.";
-                document.getElementById("analysis-c-text").innerText = data.analysis_c || "No details found.";
-
-                currentVideoAPath = data.video_a_path;
-                currentVideoCPath = data.video_c_path;
+                document.getElementById("analysis-a-text").innerText = data.analysis_a || "No details.";
+                document.getElementById("analysis-c-text").innerText = data.analysis_c || "No details.";
+                currentVideoAPath = data.video_a_path; currentVideoCPath = data.video_c_path;
                 document.getElementById("analysis-panel").classList.add("hidden");
                 document.getElementById("review-panel").classList.remove("hidden");
-            } catch (e) {
-                alert(e.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<span class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes`;
-            }
+            } catch (e) { alert(e.message); } finally { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined text-lg">analytics</span> Analyze Scenes`; }
         });
-
         document.getElementById("generate-btn").addEventListener("click", async () => {
             const btn = document.getElementById("generate-btn");
-            btn.disabled = true;
-            btn.innerHTML = `Generating...`;
+            btn.disabled = true; btn.innerHTML = `Generating...`;
             try {
                 const res = await fetch("/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         prompt: document.getElementById("prompt-box").value,
                         style: document.getElementById("style-select").value,
@@ -444,67 +398,39 @@
                         negative_prompt: document.getElementById("negative-prompt").value,
                         guidance_scale: document.getElementById("guidance-scale").value,
                         motion_strength: document.getElementById("motion-strength").value,
-                        video_a_path: currentVideoAPath,
-                        video_c_path: currentVideoCPath
+                        video_a_path: currentVideoAPath, video_c_path: currentVideoCPath
                     })
                 });
-                if (!res.ok) throw new Error(res.statusText);
                 const data = await res.json();
                 const pollStartTime = Date.now();
                 const poll = setInterval(async () => {
-                    // DEAD MAN'S SWITCH: 180s timeout
-                    if (Date.now() - pollStartTime > 180000) {
-                        clearInterval(poll);
-                        alert("Timeout: Server took too long (3 min). Job may still be processing in background.");
-                        btn.disabled = false;
-                        btn.innerHTML = `<span class="material-symbols-outlined">error</span> Timeout`;
-                        return;
+                    if (Date.now() - pollStartTime > 600000) { // 10 min timeout
+                        clearInterval(poll); alert("Timeout."); btn.disabled = false; btn.innerHTML = "Timeout"; return;
                     }
                     try {
                         const sRes = await fetch(`/status/${data.job_id}?t=${Date.now()}`);
                         if (sRes.ok) {
-                            window.fc = 0;
                             const s = await sRes.json();
                             if (s.status === "completed") {
                                 clearInterval(poll);
                                 document.getElementById("bridge-content").innerHTML = `<video controls autoplay loop class="w-full h-full object-contain bg-black"><source src="${s.video_url}" type="video/mp4"></video>`;
                                 document.getElementById("bridge-card-outer").classList.replace("border-primary/20", "border-primary");
-                                document.getElementById("bridge-border").classList.replace("border-primary/50", "border-transparent");
                                 if (s.merged_video_url) {
                                     const dlBtn = document.getElementById("merged-download-btn");
                                     dlBtn.href = s.merged_video_url;
                                     document.getElementById("merged-download-container").classList.remove("hidden");
+                                    // Show panel button
+                                    const panelBtn = document.getElementById("panel-download-btn");
+                                    panelBtn.href = s.merged_video_url;
+                                    panelBtn.classList.remove("hidden");
                                 }
-                                btn.innerHTML = "Done!";
-                                setTimeout(() => {
-                                    btn.disabled = false;
-                                    btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`;
-                                }, 3000);
-                            } else if (s.status === "error") {
-                                clearInterval(poll);
-                                alert(s.log);
-                                btn.disabled = false;
-                                btn.innerHTML = "Try Again";
-                            } else {
-                                btn.innerHTML = `${s.log} (${s.progress}%)`;
-                            }
-                        } else {
-                            throw new Error("Server Error");
+                                btn.innerHTML = "Done!"; setTimeout(() => { btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined">auto_fix_high</span> Generate Video`; }, 3000);
+                            } else if (s.status === "error") { clearInterval(poll); alert(s.log); btn.disabled = false; btn.innerHTML = "Try Again"; }
+                            else { btn.innerHTML = `${s.log} (${s.progress}%)`; }
                         }
-                    } catch (e) {
-                        window.fc = (window.fc || 0) + 1;
-                        if (window.fc > 5) {
-                            clearInterval(poll);
-                            alert("Connection lost. The active job may get lost but you can try refreshing.");
-                            btn.disabled = false;
-                            btn.innerHTML = "Connection Failed";
-                        }
-                    }
-                }, 1500);
-            } catch (e) {
-                alert(e.message);
-                btn.disabled = false;
-            }
+                    } catch (e) { console.error(e); }
+                }, 2000);
+            } catch (e) { alert(e.message); btn.disabled = false; }
         });
     </script>
 </body>
