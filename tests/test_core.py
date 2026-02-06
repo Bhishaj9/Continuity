@@ -70,7 +70,7 @@ def test_analyze_endpoint(mock_analyze):
     with patch("builtins.open", mock_open()), \
          patch("shutil.copyfileobj"):
 
-        response = client.post("/analyze", files=files)
+        response = client.post("/analyze", files=files, headers={"Authorization": "Bearer testtoken"})
 
     assert response.status_code == 200
     data = response.json()
@@ -87,7 +87,7 @@ def test_generate_endpoint(mock_add_job):
                  "video_a_path": "outputs/a.mp4",
                  "video_c_path": "outputs/c.mp4"
              }
-             response = client.post("/generate", json=payload)
+             response = client.post("/generate", json=payload, headers={"Authorization": "Bearer testtoken"})
 
              assert response.status_code == 200
              assert "job_id" in response.json()
@@ -114,6 +114,19 @@ def test_license_compliance():
         content = f.read()
     # Check for 'Proprietary' (case-insensitive as found in file: "proprietary")
     assert "Proprietary" in content or "proprietary" in content, "LICENSE must contain 'Proprietary'"
+
+def test_unauthorized_access():
+    files = {
+        "video_a": ("video_a.mp4", MOCK_VIDEO_CONTENT, "video/mp4"),
+        "video_c": ("video_c.mp4", MOCK_VIDEO_CONTENT, "video/mp4")
+    }
+    # No Auth Header
+    response = client.post("/analyze", files=files)
+    assert response.status_code == 401
+
+    payload = {"prompt": "test", "video_a_path": "a", "video_c_path": "c"}
+    response = client.post("/generate", json=payload)
+    assert response.status_code == 401
 
 # --- Agent Tests ---
 
