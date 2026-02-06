@@ -19,6 +19,7 @@ if "GOOGLE_API_KEY" not in os.environ:
 from server import app, get_db
 from models import Base, User, Job
 from agent import analyze_only, generate_only
+from google.oauth2 import id_token
 
 # Setup In-Memory DB for Tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -68,6 +69,12 @@ def mock_sleep():
     with patch("time.sleep") as mock:
         yield mock
 
+@pytest.fixture
+def mock_verify_token():
+    with patch("google.oauth2.id_token.verify_oauth2_token") as mock:
+        mock.return_value = {"email": "test@example.com", "sub": "12345"}
+        yield mock
+
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
@@ -88,7 +95,7 @@ def test_read_root():
     assert response.status_code == 200
 
 @patch("server.analyze_only")
-def test_analyze_endpoint(mock_analyze):
+def test_analyze_endpoint(mock_analyze, mock_verify_token):
     mock_analyze.return_value = {
         "analysis_a": "desc A",
         "analysis_c": "desc C",
@@ -113,7 +120,7 @@ def test_analyze_endpoint(mock_analyze):
 
     # Verify User and Job creation
     db = TestingSessionLocal()
-    user = db.query(User).filter(User.username == "testtoken").first()
+    user = db.query(User).filter(User.username == "test@example.com").first()
     assert user is not None
     job = db.query(Job).filter(Job.user_id == user.id).first()
     assert job is not None
@@ -121,7 +128,7 @@ def test_analyze_endpoint(mock_analyze):
     db.close()
 
 @patch("server.job_queue.add_job")
-def test_generate_endpoint(mock_add_job):
+def test_generate_endpoint(mock_add_job, mock_verify_token):
     with patch("os.path.exists", return_value=True):
          payload = {
              "prompt": "Test prompt",
@@ -140,7 +147,7 @@ def test_generate_endpoint(mock_add_job):
          job = db.query(Job).filter(Job.id == data["job_id"]).first()
          assert job is not None
          assert job.status == "queued"
-         assert job.owner.username == "testtoken"
+         assert job.owner.username == "test@example.com"
          db.close()
 
 def test_get_status():
@@ -177,6 +184,17 @@ def test_unauthorized_access():
     payload = {"prompt": "test", "video_a_path": "a", "video_c_path": "c"}
     response = client.post("/generate", json=payload)
     assert response.status_code == 401
+
+def test_invalid_token_verification():
+    with patch("google.oauth2.id_token.verify_oauth2_token", side_effect=ValueError("Token invalid")):
+        files = {
+            "video_a": ("video_a.mp4", MOCK_VIDEO_CONTENT, "video/mp4"),
+            "video_c": ("video_c.mp4", MOCK_VIDEO_CONTENT, "video/mp4")
+        }
+        # Sending a token that will fail verification
+        response = client.post("/analyze", files=files, headers={"Authorization": "Bearer invalidtoken"})
+        assert response.status_code == 401
+        assert "Invalid authentication credentials" in response.json()["detail"]
 
 # --- Agent Tests ---
 

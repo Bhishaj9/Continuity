@@ -13,6 +13,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 import uvicorn, os, shutil, uuid, asyncio
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from config import Settings
 from agent import analyze_only, generate_only
 from models import SessionLocal, User, Job, init_db
 
@@ -58,9 +61,6 @@ job_queue = JobQueue()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    # TODO: In a production environment, this token should be verified against
-    # Google's auth servers or decoded if it's a JWT.
-    # For this foundation stage, we only check that a token is present.
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,9 +68,36 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(User.username == token).first()
+    try:
+        # Verify the token
+        id_info = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            audience=Settings.GOOGLE_CLIENT_ID
+        )
+
+        # Extract user info
+        username = id_info.get("email") or id_info.get("sub")
+        if not username:
+             raise ValueError("Token missing email or sub")
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid authentication credentials: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        # Catch-all for other verification errors
+         raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(User).filter(User.username == username).first()
     if not user:
-        user = User(username=token)
+        user = User(username=username)
         db.add(user)
         db.commit()
         db.refresh(user)
