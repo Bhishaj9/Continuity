@@ -129,4 +129,4 @@ Contributions are welcome! Please ensure any PRs affecting the generation logic 
 5. Open a Pull Request
 
 ## 📄 License
-> ⚠️ **Proprietary Software**: The source code is available for inspection and educational purposes only. Unauthorized copying, modification, distribution, or commercial use is strictly prohibited without a license. Contact bhishaj9@gmail.com for licensing inquiries.
+> ⚠️ **Proprietary Software**: The source code is available for inspection and educational purposes only. Unauthorized copying, modification, distribution, or commercial use is strictly prohibited without a license. Contact gaurav.vashistha09@gmail.com for licensing inquiries.
