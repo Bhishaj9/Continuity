@@ -13,6 +13,11 @@ class Settings:
     GCP_BUCKET_NAME = os.getenv("GCP_BUCKET_NAME")
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+    PRICE_PER_CREDIT = 100 # cents, example value
+    COST_PER_JOB = 10 # credits
+    BASE_URL = os.getenv("BASE_URL", "http://localhost:7860")
 
     @classmethod
     def setup_auth(cls):

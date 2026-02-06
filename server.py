@@ -5,7 +5,7 @@
 # This source code is licensed under the Proprietary license found in the
 # LICENSE file in the root directory of this source tree.
 # ------------------------------------------------------------------------------
-from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body, Depends, status
+from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Body, Depends, status, Request, Header
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from google.auth.transport import requests as google_requests
 from config import Settings
 from agent import analyze_only, generate_only
 from models import SessionLocal, User, Job, init_db
+from billing import create_checkout_session, process_webhook, reserve_credits
 
 app = FastAPI(title="Continuity", description="AI Video Bridging Service")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -163,6 +164,14 @@ async def generate_endpoint(
         
     job_id = str(uuid.uuid4())
 
+    # Reserve Credits
+    try:
+        reserve_credits(user.id, Settings.COST_PER_JOB, job_id)
+    except ValueError as e:
+        raise HTTPException(status_code=402, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Transaction failed")
+
     # Create Job in DB (Async wrapper)
     def create_job_record():
         job = Job(id=job_id, user_id=user.id, status="queued", progress=0, log="Queued...")
@@ -173,6 +182,26 @@ async def generate_endpoint(
         
     await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength)
     return {"job_id": job_id}
+
+@app.post("/billing/checkout")
+def checkout_endpoint(
+    quantity: int = Body(..., embed=True),
+    user: User = Depends(get_current_user)
+):
+    base_url = Settings.BASE_URL
+    success_url = f"{base_url}/?success=true"
+    cancel_url = f"{base_url}/?canceled=true"
+
+    return {"url": create_checkout_session(user.id, quantity, success_url, cancel_url)}
+
+@app.get("/billing/balance")
+def balance_endpoint(user: User = Depends(get_current_user)):
+    return {"balance": user.balance}
+
+@app.post("/webhook/stripe")
+async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
+    payload = await request.body()
+    return process_webhook(payload, stripe_signature)
 
 @app.get("/status/{job_id}")
 def get_status(job_id: str, db: Session = Depends(get_db)):

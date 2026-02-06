@@ -16,8 +16,23 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    balance = Column(Integer, default=0)
+    stripe_customer_id = Column(String, nullable=True)
 
     jobs = relationship("Job", back_populates="owner")
+    transactions = relationship("Transaction", back_populates="user")
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    amount = Column(Integer)
+    type = Column(String) # 'purchase', 'reserve', 'settle', 'refund'
+    reference_id = Column(String, nullable=True) # job_id or session_id
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="transactions")
 
 class Job(Base):
     __tablename__ = "jobs"
