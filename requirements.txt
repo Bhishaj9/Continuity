@@ -16,3 +16,7 @@ google-generativeai
 google-cloud-aiplatform
 google-cloud-storage
 huggingface_hub>=0.27.0
+
+pytest
+pytest-asyncio
+httpx
