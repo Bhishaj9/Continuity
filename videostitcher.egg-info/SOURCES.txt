@@ -1,0 +1,13 @@
+LICENSE
+README.md
+setup.py
+continuity_agent/__init__.py
+tests/test_core.py
+tests/test_hardening.py
+videostitcher/__init__.py
+videostitcher/exceptions.py
+videostitcher/stitcher.py
+videostitcher.egg-info/PKG-INFO
+videostitcher.egg-info/SOURCES.txt
+videostitcher.egg-info/dependency_links.txt
+videostitcher.egg-info/top_level.txt
