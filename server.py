@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
-import uvicorn, os, shutil, uuid, asyncio, logging
+import uvicorn, os, shutil, uuid, asyncio, logging, json, redis
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from config import Settings
@@ -31,35 +31,15 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 # Initialize Database
 init_db()
 
+# Redis Connection
+redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-class JobQueue:
-    def __init__(self):
-        self.queue = asyncio.Queue()
-        self.is_processing = False
-
-    async def add_job(self, job_func, *args):
-        await self.queue.put((job_func, args))
-        if not self.is_processing:
-            asyncio.create_task(self.process_queue())
-
-    async def process_queue(self):
-        self.is_processing = True
-        while not self.queue.empty():
-            func, args = await self.queue.get()
-            try:
-                await asyncio.to_thread(func, *args)
-            except Exception as e:
-                logger.error(f"Queue Error: {e}")
-            self.queue.task_done()
-        self.is_processing = False
-
-job_queue = JobQueue()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -179,7 +159,26 @@ async def generate_endpoint(
 
     await run_in_threadpool(create_job_record)
         
-    await job_queue.add_job(generate_only, prompt, video_a_path, video_c_path, job_id, style, audio_prompt, negative_prompt, guidance_scale, motion_strength, user.id)
+    # Construct task payload matching generate_only signature
+    task_payload = {
+        "prompt": prompt,
+        "path_a": video_a_path,
+        "path_c": video_c_path,
+        "job_id": job_id,
+        "style": style,
+        "audio": audio_prompt,
+        "neg": negative_prompt,
+        "guidance": guidance_scale,
+        "motion": motion_strength,
+        "user_id": user.id
+    }
+
+    try:
+        redis_client.lpush("continuity_jobs", json.dumps(task_payload))
+    except redis.RedisError as e:
+        logger.error(f"Redis Error: {e}")
+        raise HTTPException(500, "Failed to enqueue job.")
+
     return {"job_id": job_id}
 
 @app.post("/billing/checkout")

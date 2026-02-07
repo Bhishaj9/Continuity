@@ -11,6 +11,7 @@ import logging
 import tempfile
 import hashlib
 import json
+import redis
 from google import genai
 from google.genai import types
 from config import Settings
@@ -32,14 +33,14 @@ def get_file_hash(filepath):
 def get_or_upload_file(client, filepath):
     file_hash = get_file_hash(filepath)
     try:
-        for f in client.files.list(config={'page_size': 50}):
+        for f in client.files.list(config={"page_size": 50}):
             if f.display_name == file_hash and f.state.name == "ACTIVE":
                 logger.info(f"♻️ Smart Cache Hit: {file_hash}")
                 return f
     except Exception:
         pass
     logger.info(f"⬆️ Uploading new file: {file_hash}")
-    return client.files.upload(file=filepath, config={'display_name': file_hash})
+    return client.files.upload(file=filepath, config={"display_name": file_hash})
 
 
 def analyze_only(path_a, path_c, job_id=None):
@@ -124,13 +125,13 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         
         # 1. Start Job
         op = client.models.generate_videos(
-            model='veo-3.1-generate-preview', 
+            model="veo-3.1-generate-preview",
             prompt=full_prompt, 
             config=types.GenerateVideosConfig(number_of_videos=1)
         )
         
         # 2. Extract ID String
-        op_name = op.name if hasattr(op, 'name') else str(op)
+        op_name = op.name if hasattr(op, "name") else str(op)
         logger.info(f"Polling Job ID: {op_name}")
         
         # 3. Create Valid SDK Object for Polling
@@ -146,7 +147,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                 refreshed_op = client.operations.get(polling_op)
                 
                 # Check status
-                if hasattr(refreshed_op, 'done') and refreshed_op.done:
+                if hasattr(refreshed_op, "done") and refreshed_op.done:
                     logger.info("Generation Done.")
                     op = refreshed_op 
                     break
@@ -163,11 +164,11 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         res_val = op.result
         result = res_val() if callable(res_val) else res_val
         
-        if result and (getattr(result, 'generated_videos', None) or 'generated_videos' in result):
-            vid = result.generated_videos[0] if hasattr(result, 'generated_videos') else result['generated_videos'][0]
+        if result and (getattr(result, "generated_videos", None) or "generated_videos" in result):
+            vid = result.generated_videos[0] if hasattr(result, "generated_videos") else result["generated_videos"][0]
             bridge_path = tempfile.mktemp(suffix=".mp4")
             
-            if hasattr(vid.video, 'uri') and vid.video.uri:
+            if hasattr(vid.video, "uri") and vid.video.uri:
                 download_blob(vid.video.uri, bridge_path)
             else:
                 bridge_path = save_video_bytes(vid.video.video_bytes)
@@ -199,3 +200,46 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
                     refund_credits_by_job_id(job_id, Settings.COST_PER_JOB)
         except Exception as e:
             logger.error(f"Final safety net failed: {e}")
+
+def run_worker():
+    logger.info("Worker started. Connecting to Redis...")
+    redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+
+    while True:
+        try:
+            logger.info("Waiting for jobs...")
+            # brpop returns tuple (list_name, item)
+            # timeout=0 means block indefinitely
+            # Using try/except for connection errors, but brpop itself blocks.
+            # If redis connection is lost, it might raise ConnectionError.
+
+            # Using timeout=5 to allow loop to check for interrupts or handle signals cleanly if needed,
+            # though here we just loop.
+            val = redis_client.brpop("continuity_jobs", timeout=5)
+            if not val:
+                continue
+
+            _, item = val
+
+            logger.info(f"Job received: {item[:50]}...")
+            data = json.loads(item)
+
+            generate_only(
+                prompt=data["prompt"],
+                path_a=data["path_a"],
+                path_c=data["path_c"],
+                job_id=data["job_id"],
+                style=data["style"],
+                audio=data["audio"],
+                neg=data["neg"],
+                guidance=data["guidance"],
+                motion=data["motion"],
+                user_id=data["user_id"]
+            )
+
+        except Exception as e:
+            logger.error(f"Worker Error: {e}")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    run_worker()
