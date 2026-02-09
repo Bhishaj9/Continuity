@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "continuity-stitch"
-version = "0.1.0"
+version = "1.0.0"
 description = "Standalone video stitching utilities for Continuity"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 authors = [
-  { name = "Continuity" }
+  { name = "Bhishaj", email = "gaurav.vashistha09@gmail.com" }
 ]
 keywords = ["ffmpeg", "video", "stitching"]
 classifiers = [
@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://example.com/continuity-stitch"
+Homepage = "https://github.com/Bhishaj9/Continuity"
 
 [tool.setuptools.packages.find]
 where = ["."]
