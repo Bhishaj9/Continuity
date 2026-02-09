@@ -32,7 +32,9 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 init_db()
 
 # Redis Connection
-redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 def get_db():
     db = SessionLocal()

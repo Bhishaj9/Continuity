@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "server.py"]
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    ports:
+      - "7860:7860"
+    depends_on:
+      - redis
+    volumes:
+      - outputs:/app/outputs
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "agent.py"]
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      - redis
+    volumes:
+      - outputs:/app/outputs
+
+volumes:
+  outputs:
