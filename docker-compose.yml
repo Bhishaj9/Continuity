@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   redis:
-    image: redis:7-alpine
+    image: public.ecr.aws/docker/library/redis:7-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -11,6 +11,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: continuity-server
     command: ["python", "server.py"]
     restart: unless-stopped
     environment:
@@ -21,7 +22,7 @@ services:
     depends_on:
       - redis
     volumes:
-      - outputs:/app/outputs
+      - ./outputs:/app/outputs
 
   worker:
     build:
@@ -35,7 +36,4 @@ services:
     depends_on:
       - redis
     volumes:
-      - outputs:/app/outputs
-
-volumes:
-  outputs:
+      - ./outputs:/app/outputs
