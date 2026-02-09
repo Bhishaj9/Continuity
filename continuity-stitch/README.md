@@ -1,8 +1,8 @@
 # continuity-stitch
 
-A production-ready Python library for stitching multiple video clips into a single output file,
-with automated 1080p/24fps normalization, FFmpeg-backed resilience, and clean management of
-temporary working directories verified by Jules.
+A production-grade Python library for stitching multiple video clips into a single output file,
+with automated 1080p/24fps normalization and cleanup, FFmpeg-backed resilience, and careful
+management of temporary working directories verified by Jules.
 
 ## Installation
 

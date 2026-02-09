@@ -21,6 +21,9 @@ from billing import refund_credits_by_job_id, reserve_credits, settle_transactio
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+
 
 def get_file_hash(filepath):
     hash_md5 = hashlib.md5()
@@ -203,7 +206,7 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
 
 def run_worker():
     logger.info("Worker started. Connecting to Redis...")
-    redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
     while True:
         try:

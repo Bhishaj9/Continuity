@@ -6,3 +6,12 @@ test:
 
 docker-build:
 	docker build -t continuity-app -f Dockerfile .
+
+deploy:
+	docker compose up -d --build
+
+stop:
+	docker compose down
+
+logs:
+	docker compose logs -f
