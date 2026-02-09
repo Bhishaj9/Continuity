@@ -183,18 +183,20 @@ def reserve_credits(user_id, cost, job_id):
     """
     db = SessionLocal()
     try:
+        user = db.query(User).filter(User.id == user_id).with_for_update().first()
+        if not user:
+             raise ValueError("User not found")
+
+        # Check for existing transaction AFTER locking user to prevent race conditions
         existing = db.query(Transaction).filter(
             Transaction.reference_id == job_id,
             Transaction.type == "reserve",
-        ).with_for_update().first()
+        ).first()
         if existing:
             if existing.status in {"reserved", "settled"}:
                 return True
             if existing.status == "refunded":
                 raise ValueError("Reservation already refunded")
-        user = db.query(User).filter(User.id == user_id).with_for_update().first()
-        if not user:
-             raise ValueError("User not found")
 
         if user.balance < cost:
             raise ValueError("Insufficient funds")
