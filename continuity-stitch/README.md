@@ -1,8 +1,10 @@
 # continuity-stitch
 
-A production-grade Python library for stitching multiple video clips into a single output file,
-with automated 1080p/24fps normalization and cleanup, FFmpeg-backed resilience, and careful
-management of temporary working directories verified by Jules.
+## Project Name & Goal
+
+**continuity-stitch** is a lightweight Python utility for frame-accurate video normalization
+(1080p/24fps) using FFmpeg. It powers the video normalization engine for Project Continuity
+with a focus on **zero configuration** and **reliability**.
 
 ## Installation
 
@@ -10,45 +12,33 @@ management of temporary working directories verified by Jules.
 pip install continuity-stitch
 ```
 
-## Usage
+## Key Technical Features
+
+- **Normalization**: Automatically scales and converts videos to 1080p at 24fps for consistent
+  AI generation.
+- **Resource Safety**: Managed temporary directories with automatic cleanup of intermediate
+  segments.
+- **Concurrency Ready**: Designed for use in background workers (Celery/Redis) with high
+  reliability.
+
+## Quick Start Example
 
 ```python
 from continuity_stitch import VideoStitcher
 
 stitcher = VideoStitcher(
-    input_paths=["intro.mp4", "main.mp4", "outro.mp4"],
-    output_path="stitched.mp4",
-    work_dir="tmp/continuity_stitch",
+    input_paths=["intro.mp4", "main.mp4"],
+    output_path="normalized.mp4",
 )
 
-stitcher.stitch()
+normalized_path = stitcher.stitch()
+print(normalized_path)
 ```
 
-## Features
+## Dependencies
 
-- Normalizes every clip to 1080p/24fps with consistent H.264 output, so resolution or codec
-  mismatches are handled automatically.
-- Uses FFmpeg and FFprobe for validation, making the stitching workflow robust in production.
-- Manages temporary working directories cleanly, whether you provide a `work_dir` or rely on
-  isolated temp folders.
-
-## Validation
-
-`VideoStitcher` validates that all clips share the same codec and resolution before stitching.
-If you need to run validation separately, use `VideoValidator` directly:
-
-```python
-from continuity_stitch import VideoValidator
-
-validator = VideoValidator()
-validator.validate(["clip_a.mp4", "clip_b.mp4"])
-```
-
-## Requirements
-
-- `ffmpeg` and `ffprobe` must be installed and available on your system PATH.
+- **FFmpeg** must be installed and available on your system PATH.
 
 ## License
 
-MIT. This standalone utility remains MIT-licensed even though the main SaaS platform is
-proprietary.
+MIT
