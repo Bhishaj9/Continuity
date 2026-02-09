@@ -155,8 +155,8 @@ def test_analyze_endpoint(mock_analyze, mock_verify_token):
     assert job.status == "analyzing"
     db.close()
 
-@patch("server.job_queue.add_job")
-def test_generate_endpoint(mock_add_job, mock_verify_token):
+@patch("server.redis_client.lpush")
+def test_generate_endpoint(mock_lpush, mock_verify_token):
     # Give user credits first
     db = TestingSessionLocal()
     user = User(username="test@example.com", balance=100)
@@ -164,7 +164,7 @@ def test_generate_endpoint(mock_add_job, mock_verify_token):
     db.commit()
     db.close()
 
-    with patch("os.path.exists", return_value=True):
+    with patch("os.path.isfile", return_value=True):
          payload = {
              "prompt": "Test prompt",
              "video_a_path": "outputs/a.mp4",
@@ -175,7 +175,7 @@ def test_generate_endpoint(mock_add_job, mock_verify_token):
          assert response.status_code == 200
          data = response.json()
          assert "job_id" in data
-         mock_add_job.assert_called_once()
+         mock_lpush.assert_called_once()
 
          # Verify DB
          db = TestingSessionLocal()
@@ -275,10 +275,10 @@ def test_stripe_webhook(mock_stripe):
     assert txn.amount == 10
     db.close()
 
-@patch("server.job_queue.add_job")
-def test_generate_insufficient_funds(mock_add_job, mock_verify_token):
+@patch("server.redis_client.lpush")
+def test_generate_insufficient_funds(mock_lpush, mock_verify_token):
     # User has 0 balance (default)
-    with patch("os.path.exists", return_value=True):
+    with patch("os.path.isfile", return_value=True):
          payload = {
              "prompt": "Test prompt",
              "video_a_path": "outputs/a.mp4",
@@ -288,10 +288,10 @@ def test_generate_insufficient_funds(mock_add_job, mock_verify_token):
          response = client.post("/generate", json=payload, headers={"Authorization": "Bearer token"})
 
          assert response.status_code == 200
-         mock_add_job.assert_called_once()
+         mock_lpush.assert_called_once()
 
-@patch("server.job_queue.add_job")
-def test_generate_reserve_success(mock_add_job, mock_verify_token):
+@patch("server.redis_client.lpush")
+def test_generate_reserve_success(mock_lpush, mock_verify_token):
     # Setup user with balance
     db = TestingSessionLocal()
     user = db.query(User).filter(User.username == "test@example.com").first()
@@ -303,7 +303,7 @@ def test_generate_reserve_success(mock_add_job, mock_verify_token):
     db.commit()
     db.close()
 
-    with patch("os.path.exists", return_value=True):
+    with patch("os.path.isfile", return_value=True):
          payload = {
              "prompt": "Test prompt",
              "video_a_path": "outputs/a.mp4",
@@ -312,7 +312,7 @@ def test_generate_reserve_success(mock_add_job, mock_verify_token):
          response = client.post("/generate", json=payload, headers={"Authorization": "Bearer token"})
 
          assert response.status_code == 200
-         mock_add_job.assert_called_once()
+         mock_lpush.assert_called_once()
 
          # Check balance NOT deducted yet (async)
          db = TestingSessionLocal()

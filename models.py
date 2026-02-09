@@ -34,6 +34,7 @@ class Transaction(Base):
     stripe_event_id = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    __table_args__ = (Index('idx_txn_ref_type', 'reference_id', 'type', unique=True),)
     user = relationship("User", back_populates="transactions")
 
 class Job(Base):
