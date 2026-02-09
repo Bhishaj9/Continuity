@@ -45,6 +45,27 @@ def get_db():
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+ALLOWED_RESOLUTIONS = {"720p", "1080p", "4k"}
+
+
+def _validate_resolution(resolution: str | None) -> str | None:
+    if resolution is None:
+        return None
+    normalized = resolution.strip().lower()
+    if normalized not in ALLOWED_RESOLUTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid resolution '{resolution}'. Allowed: {sorted(ALLOWED_RESOLUTIONS)}",
+        )
+    return normalized
+
+
+def _validate_video_paths(path_a: str, path_c: str) -> None:
+    if not path_a or not path_c:
+        raise HTTPException(status_code=400, detail="Video paths are required.")
+    if not os.path.isfile(path_a) or not os.path.isfile(path_c):
+        raise HTTPException(status_code=400, detail="Videos not found.")
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     if not token:
         raise HTTPException(
@@ -145,11 +166,12 @@ async def generate_endpoint(
     motion_strength: int = Body(5),
     video_a_path: str = Body(...),
     video_c_path: str = Body(...),
+    resolution: str | None = Body(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if not os.path.exists(video_a_path) or not os.path.exists(video_c_path):
-        raise HTTPException(400, "Videos not found.")
+    _validate_video_paths(video_a_path, video_c_path)
+    resolution = _validate_resolution(resolution)
         
     job_id = str(uuid.uuid4())
 
@@ -172,7 +194,8 @@ async def generate_endpoint(
         "neg": negative_prompt,
         "guidance": guidance_scale,
         "motion": motion_strength,
-        "user_id": user.id
+        "user_id": user.id,
+        "resolution": resolution,
     }
 
     try:

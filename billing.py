@@ -143,6 +143,9 @@ def reconcile_reservations():
             if not should_refund:
                 continue
 
+            txn = db.query(Transaction).filter(Transaction.id == txn.id).with_for_update().first()
+            if not txn or txn.status != "reserved":
+                continue
             user = db.query(User).filter(User.id == txn.user_id).with_for_update().first()
             if not user:
                 continue
@@ -180,6 +183,15 @@ def reserve_credits(user_id, cost, job_id):
     """
     db = SessionLocal()
     try:
+        existing = db.query(Transaction).filter(
+            Transaction.reference_id == job_id,
+            Transaction.type == "reserve",
+        ).with_for_update().first()
+        if existing:
+            if existing.status in {"reserved", "settled"}:
+                return True
+            if existing.status == "refunded":
+                raise ValueError("Reservation already refunded")
         user = db.query(User).filter(User.id == user_id).with_for_update().first()
         if not user:
              raise ValueError("User not found")
@@ -219,6 +231,20 @@ def refund_credits_by_job_id(job_id, cost):
             logger.error(f"Job {job_id} not found for refund")
             return
 
+        orig_txn = db.query(Transaction).filter(
+            Transaction.reference_id == job_id,
+            Transaction.type == 'reserve'
+        ).with_for_update().first()
+        if not orig_txn:
+            logger.warning(f"No reservation transaction found for job {job_id}")
+            return
+        if orig_txn.status == "refunded":
+            logger.info(f"Job {job_id} already refunded")
+            return
+        if orig_txn.status == "settled":
+            logger.warning(f"Job {job_id} already settled; refusing refund")
+            return
+
         user = db.query(User).filter(User.id == job.user_id).with_for_update().first()
         if not user: return
 
@@ -233,12 +259,7 @@ def refund_credits_by_job_id(job_id, cost):
         db.add(txn)
 
         # Mark original reservation as refunded
-        orig_txn = db.query(Transaction).filter(
-            Transaction.reference_id == job_id,
-            Transaction.type == 'reserve'
-        ).first()
-        if orig_txn:
-            orig_txn.status = 'refunded'
+        orig_txn.status = 'refunded'
 
         db.commit()
         logger.info(f"Refunded {cost} credits to user {user.id} for job {job_id}")
@@ -258,7 +279,7 @@ def settle_transaction(job_id):
             Transaction.reference_id == job_id,
             Transaction.type == 'reserve'
         ).with_for_update().first()
-        if txn:
+        if txn and txn.status == "reserved":
             txn.status = 'settled'
             db.commit()
     except Exception as e:
