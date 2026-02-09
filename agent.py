@@ -23,6 +23,20 @@ logger = logging.getLogger(__name__)
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+JOB_QUEUE = "continuity_jobs"
+PROCESSING_QUEUE = "continuity_jobs_processing"
+REQUIRED_JOB_FIELDS = {
+    "prompt",
+    "path_a",
+    "path_c",
+    "job_id",
+    "style",
+    "audio",
+    "neg",
+    "guidance",
+    "motion",
+    "user_id",
+}
 
 
 def get_file_hash(filepath):
@@ -204,9 +218,61 @@ def generate_only(prompt, path_a, path_c, job_id, style, audio, neg, guidance, m
         except Exception as e:
             logger.error(f"Final safety net failed: {e}")
 
+def _connect_redis():
+    return redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=0,
+        decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=5,
+        retry_on_timeout=True,
+        health_check_interval=30,
+    )
+
+
+def _requeue_inflight(redis_client):
+    while True:
+        item = redis_client.rpoplpush(PROCESSING_QUEUE, JOB_QUEUE)
+        if not item:
+            break
+        logger.warning("Recovered inflight job from previous worker run.")
+
+
+def _parse_job_payload(item):
+    try:
+        data = json.loads(item)
+    except json.JSONDecodeError as exc:
+        logger.error(f"Invalid job payload JSON: {exc}")
+        return None
+    if not isinstance(data, dict):
+        logger.error("Job payload must be a JSON object.")
+        return None
+    missing = REQUIRED_JOB_FIELDS - data.keys()
+    if missing:
+        logger.error(f"Job payload missing fields: {sorted(missing)}")
+        data["_invalid"] = True
+        return data
+    for path_key in ("path_a", "path_c"):
+        path_value = data.get(path_key)
+        if not path_value or not os.path.isfile(path_value):
+            logger.error(f"Job payload has invalid {path_key}: {path_value}")
+            data["_invalid"] = True
+            return data
+    resolution = data.get("resolution")
+    if resolution:
+        normalized = str(resolution).strip().lower()
+        if normalized not in {"720p", "1080p", "4k"}:
+            logger.error(f"Invalid resolution value: {resolution}")
+            data["_invalid"] = True
+            return data
+    return data
+
+
 def run_worker():
     logger.info("Worker started. Connecting to Redis...")
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+    redis_client = _connect_redis()
+    _requeue_inflight(redis_client)
 
     while True:
         try:
@@ -218,28 +284,42 @@ def run_worker():
 
             # Using timeout=5 to allow loop to check for interrupts or handle signals cleanly if needed,
             # though here we just loop.
-            val = redis_client.brpop("continuity_jobs", timeout=5)
-            if not val:
+            item = redis_client.brpoplpush(JOB_QUEUE, PROCESSING_QUEUE, timeout=5)
+            if not item:
                 continue
 
-            _, item = val
-
             logger.info(f"Job received: {item[:50]}...")
-            data = json.loads(item)
+            data = _parse_job_payload(item)
+            if not data or not isinstance(data, dict):
+                continue
+
+            job_id = data.get("job_id")
+            if data.get("_invalid") or REQUIRED_JOB_FIELDS - data.keys():
+                if job_id:
+                    update_job_status(job_id, "error", 0, "Invalid job payload.")
+                    refund_credits_by_job_id(job_id, Settings.COST_PER_JOB)
+                redis_client.lrem(PROCESSING_QUEUE, 1, item)
+                continue
 
             generate_only(
                 prompt=data["prompt"],
                 path_a=data["path_a"],
                 path_c=data["path_c"],
-                job_id=data["job_id"],
+                job_id=job_id,
                 style=data["style"],
                 audio=data["audio"],
                 neg=data["neg"],
                 guidance=data["guidance"],
                 motion=data["motion"],
-                user_id=data["user_id"]
+                user_id=data["user_id"],
             )
+            redis_client.lrem(PROCESSING_QUEUE, 1, item)
 
+        except redis.RedisError as e:
+            logger.error(f"Redis Error: {e}")
+            time.sleep(2)
+            redis_client = _connect_redis()
+            _requeue_inflight(redis_client)
         except Exception as e:
             logger.error(f"Worker Error: {e}")
             time.sleep(1)

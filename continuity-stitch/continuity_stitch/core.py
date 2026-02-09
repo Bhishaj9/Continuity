@@ -26,6 +26,8 @@ class VideoStitcher:
         self.ffmpeg_path = ffmpeg_path
         self.validator = VideoValidator(ffprobe_path=ffprobe_path)
         self.work_dir = Path(work_dir) if work_dir else None
+        self._temp_dir: Optional[Path] = None
+        self._managed_temp_dir = False
 
     def stitch(self) -> str:
         if not self.input_paths:
@@ -34,6 +36,11 @@ class VideoStitcher:
         self.validator.validate(self.input_paths)
         normalized_paths: List[str] = []
         list_file: Optional[str] = None
+        self._temp_dir = self.work_dir
+        self._managed_temp_dir = False
+        if self._temp_dir is None:
+            self._temp_dir = Path(tempfile.mkdtemp(prefix="continuity_stitch_"))
+            self._managed_temp_dir = True
         try:
             normalized_paths = [
                 self._normalize_video(path) for path in self.input_paths
@@ -41,7 +48,12 @@ class VideoStitcher:
             list_file = self._write_concat_list(normalized_paths)
             self._concat(list_file, self.output_path)
         finally:
-            self._cleanup_files(normalized_paths, list_file)
+            self._cleanup_files(
+                normalized_paths,
+                list_file,
+                self._temp_dir,
+                self._managed_temp_dir,
+            )
         return self.output_path
 
     def _ensure_ffmpeg(self) -> None:
@@ -113,28 +125,23 @@ class VideoStitcher:
             ) from exc
 
     def _temp_path(self, filename: str) -> str:
-        if self.work_dir:
-            self.work_dir.mkdir(parents=True, exist_ok=True)
-            return str(self.work_dir / filename)
-        temp_dir = tempfile.mkdtemp(prefix="continuity_stitch_")
-        return str(Path(temp_dir) / filename)
+        if not self._temp_dir:
+            self._temp_dir = Path(tempfile.mkdtemp(prefix="continuity_stitch_"))
+            self._managed_temp_dir = True
+        self._temp_dir.mkdir(parents=True, exist_ok=True)
+        return str(self._temp_dir / filename)
 
     @staticmethod
-    def _cleanup_files(normalized_paths: Iterable[str], list_file: Optional[str]) -> None:
+    def _cleanup_files(
+        normalized_paths: Iterable[str],
+        list_file: Optional[str],
+        temp_dir: Optional[Path],
+        managed_temp_dir: bool,
+    ) -> None:
         for path in normalized_paths:
             if path and os.path.exists(path):
                 os.remove(path)
-                parent = Path(path).parent
-                if parent.exists() and parent.name.startswith("continuity_stitch_"):
-                    try:
-                        parent.rmdir()
-                    except OSError:
-                        pass
         if list_file and os.path.exists(list_file):
             os.remove(list_file)
-            parent = Path(list_file).parent
-            if parent.exists() and parent.name.startswith("continuity_stitch_"):
-                try:
-                    parent.rmdir()
-                except OSError:
-                    pass
+        if temp_dir and managed_temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
