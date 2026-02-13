@@ -3,10 +3,11 @@ import shutil
 import requests
 import tempfile
 import logging
-import subprocess
 from datetime import timedelta
 from google.cloud import storage
 from sqlalchemy.orm.exc import StaleDataError
+from continuity_stitch import VideoStitcher
+from continuity_stitch.exceptions import MissingFFmpegError, StitchError
 from config import Settings
 from models import SessionLocal, Job
 
@@ -50,54 +51,30 @@ def save_video_bytes(bytes_data, suffix=".mp4") -> str:
     return f.name
 
 def normalize_video(input_path):
-    """Helper to normalize video. Returns None if ffmpeg missing."""
-    if not shutil.which("ffmpeg"): return None
-
+    """Normalizes a single clip through continuity_stitch.VideoStitcher."""
     output_path = input_path.replace(".mp4", "_norm.mp4")
-    cmd = [
-        "ffmpeg", "-y", "-i", input_path,
-        "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24,format=yuv420p",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-        "-an",
-        output_path
-    ]
-    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-    return output_path
+    try:
+        stitcher = VideoStitcher(input_paths=[input_path], output_path=output_path)
+        return stitcher.stitch()
+    except (MissingFFmpegError, StitchError) as e:
+        logger.error(f"Normalization Failed: {e}")
+        return None
 
 def stitch_videos(path_a, path_b, path_c, output_path):
     """ Attempts to stitch videos. RETURNS: output_path if successful, NONE if ffmpeg is missing/fails. """
-    # 1. CHECK IF FFMPEG EXISTS
-    if not shutil.which("ffmpeg"):
-        logger.warning("⚠️ FFmpeg not found. Skipping stitch.")
-        return None
-
     logger.info(f"🧵 Stitching: {path_a} + {path_b} + {path_c}")
     try:
-        norm_a = normalize_video(path_a)
-        norm_b = normalize_video(path_b)
-        norm_c = normalize_video(path_c)
-        
-        if not all([norm_a, norm_b, norm_c]):
-            raise Exception("Normalization failed")
-        
-        list_file = "concat_list.txt"
-        with open(list_file, "w") as f:
-            f.write(f"file '{norm_a}'\n")
-            f.write(f"file '{norm_b}'\n")
-            f.write(f"file '{norm_c}'\n")
-        
-        cmd = [
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file,
-            "-c", "copy", output_path
-        ]
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-        
-        # Cleanup
-        for p in [norm_a, norm_b, norm_c, list_file]:
-            if os.path.exists(p): os.remove(p)
-            
-        return output_path
-        
+        stitcher = VideoStitcher(
+            input_paths=[path_a, path_b, path_c],
+            output_path=output_path,
+        )
+        return stitcher.stitch()
+    except MissingFFmpegError:
+        logger.warning("⚠️ FFmpeg not found. Skipping stitch.")
+        return None
+    except StitchError as e:
+        logger.error(f"Stitch Logic Failed: {e}")
+        return None
     except Exception as e:
         logger.error(f"Stitch Logic Failed: {e}")
         return None  # Return None so the pipeline continues without crashing
